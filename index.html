@@ -458,7 +458,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.11'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.12'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -848,11 +848,16 @@ function viewToday(){
   return html;
 }
 
+function monthRange(start){const a=parse(start),b=parse(addDays(start,27));const cap=s=>s.replace(/^./,c=>c.toUpperCase());
+  const ma=MOIS[a.getMonth()],mb=MOIS[b.getMonth()];
+  if(a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth())return cap(ma)+' '+a.getFullYear();
+  if(a.getFullYear()===b.getFullYear())return cap(ma)+' – '+cap(mb)+' '+b.getFullYear();
+  return cap(ma)+' '+a.getFullYear()+' – '+cap(mb)+' '+b.getFullYear()}
 function viewCalendar(){
   const t=today(),P=computePlan(),sm=blockMin();
   const start=calStartDay();
   let html=`<div class="stack"><div class="calhead"><button class="iconbtn" onclick="moveMonth(-1)" aria-label="Quatre semaines précédentes">‹</button>
-    <h1 style="font-size:18px">${shortDate(start)} – ${shortDate(addDays(start,27))}</h1>
+    <h1 style="font-size:20px">${monthRange(start)}</h1>
     <button class="iconbtn" onclick="moveMonth(1)" aria-label="Quatre semaines suivantes">›</button></div>
     <div class="grid">${['lun','mar','mer','jeu','ven','sam','dim'].map(w=>`<div class="wd">${w}</div>`).join('')}`;
   for(let k=0;k<28;k++){
