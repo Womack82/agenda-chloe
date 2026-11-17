@@ -457,7 +457,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.6'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.7'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1031,7 +1031,9 @@ function renderSheet(){
   else if(ui.sheet.kind==='event')inner=evHtml();
   else if(ui.sheet.kind==='pause')inner=pauseHtml();
   const closeBtn=ui.sheet.kind==='pause'?'':`<button class="sheetclose" onclick="closeSheet()" aria-label="Fermer">✕</button>`;
+  const oldSheet=root.querySelector('.sheet');const keepScroll=oldSheet?oldSheet.scrollTop:0;
   root.innerHTML=`<div class="scrim" onclick="if(event.target===this&&!(ui.pause&&ui.pause.running))${'closeSheet()'}"><div class="sheetbox"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${inner}</div>${closeBtn}</div></div>`;
+  const newSheet=root.querySelector('.sheet');if(newSheet)newSheet.scrollTop=keepScroll;
 }
 function closeSheet(){if(ui.pause){clearInterval(pauseTick);ui.pause=null}ui.sheet=null;ui.form=null;ui.ev=null;render()}
 
