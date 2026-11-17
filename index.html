@@ -255,7 +255,9 @@ nav .add svg{width:28px;height:28px}
 
 /* sheet */
 .scrim{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:10;display:flex;align-items:flex-end;justify-content:center}
-.sheet{background:var(--card);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;animation:up .22s ease-out}
+.sheetbox{position:relative;width:100%;max-width:560px;max-height:92%;display:flex;flex-direction:column}
+.sheetclose{position:absolute;top:-22px;right:16px;z-index:2;width:44px;height:44px;border-radius:14px;border:0;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center;font-size:18px;font-weight:800;color:var(--ink)}
+.sheet{background:var(--card);width:100%;max-width:560px;flex:1 1 auto;min-height:0;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;animation:up .22s ease-out}
 @keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){.sheet{animation:none}}
 .sheet .grab{width:42px;height:5px;border-radius:5px;background:var(--line);margin:-6px auto 0}
@@ -455,7 +457,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.5'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.6'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -971,7 +973,7 @@ function activitiesCard(d){const ev=eventsOn(d);
    ${ev.length?'<div>'+ev.map(evRow).join('')+'</div>':`<div class="sub">Aucune. Temps pour les devoirs : ${fmtMin(S.settings.cap[parse(d).getDay()])}. Sport, sleepover, amis ? Ajoute-le et le travail sera déplacé.</div>`}</div>`}
 function openEvent(d,weekly){const date=d||today();ui.ev={label:'',date,weekly:!!weekly,weekday:parse(date).getDay(),fh:0,fm:0};ui.sheet={kind:'event'};renderSheet()}
 function evHtml(){const e=ui.ev;const sugg=['Sport','Sleepover','Amis','Fête','Rendez-vous','Musique','Travail'];
-  return `<div class="sethead"><h2>Nouvelle activité</h2><button class="iconbtn" onclick="closeSheet()" aria-label="Fermer">✕</button></div>
+  return `<div class="sethead"><h2>Nouvelle activité</h2></div>
   <label class="f" for="eLabel">Quoi ?<input type="text" id="eLabel" value="${h(e.label)}" placeholder="ex. Pratique de soccer" oninput="ui.ev.label=this.value"></label>
   <div class="chips">${sugg.map(x=>`<button class="opt ${e.label===x?'on':''}" style="padding:6px 11px" onclick="setE('label',${h(JSON.stringify(x))})">${x}</button>`).join('')}</div>
   <div class="seg c3" style="grid-template-columns:1fr 1fr"><button class="opt ${!e.weekly?'on':''}" onclick="setE('weekly',false)">Une fois</button><button class="opt ${e.weekly?'on':''}" onclick="setE('weekly',true)">Chaque semaine</button></div>
@@ -1028,7 +1030,8 @@ function renderSheet(){
   else if(ui.sheet.kind==='after')inner=afterHtml();
   else if(ui.sheet.kind==='event')inner=evHtml();
   else if(ui.sheet.kind==='pause')inner=pauseHtml();
-  root.innerHTML=`<div class="scrim" onclick="if(event.target===this&&!(ui.pause&&ui.pause.running))${'closeSheet()'}"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${inner}</div></div>`;
+  const closeBtn=ui.sheet.kind==='pause'?'':`<button class="sheetclose" onclick="closeSheet()" aria-label="Fermer">✕</button>`;
+  root.innerHTML=`<div class="scrim" onclick="if(event.target===this&&!(ui.pause&&ui.pause.running))${'closeSheet()'}"><div class="sheetbox"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${inner}</div>${closeBtn}</div></div>`;
 }
 function closeSheet(){if(ui.pause){clearInterval(pauseTick);ui.pause=null}ui.sheet=null;ui.form=null;ui.ev=null;render()}
 
@@ -1047,7 +1050,7 @@ function formHtml(){
   const editing=!!f.id;const it=editing?itemById(f.id):null;
   const tsub={devoir:'Exercices, lecture…',controle:'Révisions avant',projet:'Plusieurs étapes'};
   const t0=today(),qd=[[addDays(t0,1),'Demain']];{let x=addDays(t0,1);while(parse(x).getDay()!==5)x=addDays(x,1);if(x!==qd[0][0])qd.push([x,'Ce vendredi']);let y=addDays(t0,1);while(parse(y).getDay()!==1)y=addDays(y,1);qd.push([y,'Lundi proch.'])}
-  let html=`<div class="sethead"><div><span class="eyebrow" style="color:var(--accent)">${editing?'Modifier':'Nouveau travail'}</span><h2 style="margin-top:2px">${editing?'Modifier ce travail':'Ajouter un devoir ou contrôle'}</h2></div><button class="iconbtn" onclick="closeSheet()" aria-label="Fermer">${MS('close')}</button></div>
+  let html=`<div class="sethead"><div><span class="eyebrow" style="color:var(--accent)">${editing?'Modifier':'Nouveau travail'}</span><h2 style="margin-top:2px">${editing?'Modifier ce travail':'Ajouter un devoir ou contrôle'}</h2></div></div>
   <div class="fgroup"><span class="flabel">Type de travail</span><div class="typecards">${Object.keys(TYPES).map(k=>`<button class="tcd ${typeCls(k)} ${f.type===k?'on':''}" onclick="setF('type','${k}')">${typeIcon(k)}<b>${k==='projet'?'Projet':TYPES[k].label}</b><small>${tsub[k]}</small><span class="ck">${MS('check')}</span></button>`).join('')}</div></div>
   <div class="fgroup"><span class="flabel">Matière<small>${S.settings.subjects.length} matières</small></span><div class="subjscroll">${S.settings.subjects.map(s=>`<button class="schip ${f.subject===s?'on':''}" onclick="setF('subject',${h(JSON.stringify(s))})">${subjIcon(s)}${h(shortSubj(s))}</button>`).join('')}</div></div>
   <div class="fgroup"><label class="flabel" for="fTitle">Intitulé de la tâche</label><div class="inbox"><span class="ib">${MS('edit')}</span><input type="text" id="fTitle" value="${h(f.title)}" placeholder="${f.type==='controle'?'ex. Contrôle chapitre 4, fonctions':f.type==='projet'?'ex. Exposé sur la Nouvelle-France':'ex. Exercices p. 112, nos 1 à 8'}" oninput="ui.form.title=this.value"></div></div>
