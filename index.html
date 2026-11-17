@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Mon agenda de devoirs</title>
 <meta name="description" content="Organise tes devoirs, soir après soir">
 <meta name="theme-color" content="#0f766e">
@@ -425,7 +425,7 @@ nav .add .ms{font-size:30px;stroke-width:2.8}
 .opt{border-radius:16px;border:0;box-shadow:var(--shadow)}
 .opt.on{box-shadow:inset 0 0 0 2px var(--c,var(--accent))}
 </style>
-</head>
+<style>html,body{touch-action:pan-x pan-y}</style><script>['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault()},{passive:false})});document.addEventListener('touchmove',function(e){if(e.touches.length>1)e.preventDefault()},{passive:false});</script></head>
 <body>
 <header id="topbar"></header>
 <div id="app"></div>
