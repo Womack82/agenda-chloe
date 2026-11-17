@@ -457,7 +457,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.7'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.8'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -726,11 +726,12 @@ function taskRow(it,opts){
   const st=opts.step||null;const sarg=st?`,'${st.id}'`:'';const sm=blockMin();
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
   const sess=opts.session?(st?'Séance '+opts.session+'/'+st.sessions:'Séance '+opts.session+'/'+it.sessions)+' ('+fmtMin(sm)+')':'';
+  const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
   const chk=opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
-  return `<div class="tcard ${typeCls(it.type)} ${opts.done?'done':''}">${chk}
+  return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--c:${sc}"`:''}>${chk}
     <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
       <h4>${h(it.title)}</h4>
-      ${st?`<div class="tstep"><span class="stepbadge">Étape ${stepN}/${it.steps.length}</span><span>${h(st.label)}</span></div>`:''}
+      ${st?`<div class="tstep"><span class="stepbadge">Étape ${stepN}/${it.steps.length}</span><span style="${stepOn?'text-decoration:line-through;opacity:.5':''}">${h(st.label)}</span></div>`:''}
       ${it.notes&&!opts.done?`<p class="tnote">${h(it.notes)}</p>`:''}
       ${sess&&!opts.done?`<div class="meter">${MS(it.type==='controle'?'alarm':it.type==='projet'?'timelapse':'timer')}${sess}</div>`:''}
     </div></div>`;
@@ -848,16 +849,13 @@ function viewToday(){
 
 function viewCalendar(){
   const t=today(),P=computePlan(),sm=blockMin();
-  const [y,m]=ui.calMonth.split('-').map(Number);
-  const first=new Date(y,m-1,1);const off=(first.getDay()+6)%7;
-  let start=ds(new Date(y,m-1,1-off));
-  let html=`<div class="stack"><div class="calhead"><button class="iconbtn" onclick="moveMonth(-1)" aria-label="Mois précédent">‹</button>
-    <h1 style="font-size:24px">${MOIS[m-1].replace(/^./,c=>c.toUpperCase())} ${y}</h1>
-    <button class="iconbtn" onclick="moveMonth(1)" aria-label="Mois suivant">›</button></div>
+  const start=calStartDay();
+  let html=`<div class="stack"><div class="calhead"><button class="iconbtn" onclick="moveMonth(-1)" aria-label="Quatre semaines précédentes">‹</button>
+    <h1 style="font-size:18px">${shortDate(start)} – ${shortDate(addDays(start,27))}</h1>
+    <button class="iconbtn" onclick="moveMonth(1)" aria-label="Quatre semaines suivantes">›</button></div>
     <div class="grid">${['lun','mar','mer','jeu','ven','sam','dim'].map(w=>`<div class="wd">${w}</div>`).join('')}`;
-  for(let k=0;k<42;k++){
-    const d=addDays(start,k);const inM=parse(d).getMonth()===m-1;
-    if(k===35&&!inM)break;
+  for(let k=0;k<28;k++){
+    const d=addDays(start,k);const inM=true;
     const dues=S.items.filter(i=>i.due===d);
     let loadBar='';
     if(d>=t&&P.load[d]!=null){const c=P.cap[d],l=P.load[d];const pct=c?Math.min(100,l/c*100):(l?100:0);
@@ -871,7 +869,8 @@ function viewCalendar(){
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
   html+=`<div class="section"><h2>${h(longDate(d).replace(/^./,c=>c.toUpperCase()))}</h2>`;
-  if(dues.length){html+=`<div class="sub" style="font-weight:800">À remettre</div>`;dues.forEach(i=>html+=listRow(i))}
+  html+=`<div class="sub" style="font-weight:800">À remettre ce jour-là</div>`;
+  if(dues.length)dues.forEach(i=>html+=listRow(i));else html+=`<div class="card empty">Rien à remettre ce jour-là.</div>`;
   if(d>=t){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
     html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*sm):''}</div>`;
@@ -1083,7 +1082,7 @@ const STEP_IDEAS={devoir:['Exercices','Lire le texte','Répondre aux questions',
 function stepsHtml(){const f=ui.form,sm=blockMin();
   let html=`<div class="card stack ${typeCls(f.type)}" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>Découper en étapes</b> <span class="sub">(facultatif)</span><div class="sub">Ex. « 3 pages d'exercices » et « lire le texte » : chaque étape sera placée sur un soir différent, dans l'ordre.</div></div>`;
   if(f.steps.length){html+=`<div class="steps">`;f.steps.forEach((st,k)=>{const ok=st.done>=st.sessions;
-    html+=`<div class="stepr"><span class="num ${ok?'ok':''}">${ok?'✓':k+1}</span><input type="text" id="st_${k}" value="${h(st.label)}" placeholder="Étape ${k+1}" oninput="ui.form.steps[${k}].label=this.value" aria-label="Nom de l'étape ${k+1}">
+    html+=`<div class="stepr">${ok?`<button class="num ok" style="border:0;padding:0;font:inherit" onclick="stepUndo(${k})" aria-label="Remettre cette étape à faire">✓</button>`:`<span class="num">${k+1}</span>`}<input type="text" id="st_${k}" value="${h(st.label)}" placeholder="Étape ${k+1}" oninput="ui.form.steps[${k}].label=this.value" aria-label="Nom de l'étape ${k+1}">
       <span class="ctl"><button onclick="stepBump(${k},-1)" aria-label="Moins de temps">−</button><b>${fmtMin(st.sessions*sm)}</b><button onclick="stepBump(${k},1)" aria-label="Plus de temps">+</button></span>
       <span class="tools">${k>0?`<button onclick="stepMove(${k},-1)">↑ Monter</button>`:''}${k<f.steps.length-1?`<button onclick="stepMove(${k},1)">↓ Descendre</button>`:''}<button onclick="stepDel(${k})">✕ Retirer</button></span></div>`});
     html+=`</div><div class="sub" style="font-weight:800">Total : ${fmtMin(f.steps.reduce((a,x)=>a+x.sessions,0)*sm)}</div>`}
@@ -1091,6 +1090,7 @@ function stepsHtml(){const f=ui.form,sm=blockMin();
   return html}
 function syncSteps_(){(ui.form.steps||[]).forEach((st,k)=>{const e=document.getElementById('st_'+k);if(e)st.label=e.value})}
 function stepAdd(label){syncInputs();ui.form.steps.push({id:uid(),label,sessions:1,done:0});renderSheet();if(!label)setTimeout(()=>{const e=document.getElementById('st_'+(ui.form.steps.length-1));if(e)e.focus()},50)}
+function stepUndo(k){if(!window.confirm('Remettre cette étape à faire ? Elle ne sera plus marquée comme faite.'))return;syncInputs();const st=ui.form.steps[k];if(st)st.done=0;renderSheet()}
 function stepBump(k,n){syncInputs();const st=ui.form.steps[k];st.sessions=Math.max(Math.max(1,st.done),Math.min(10,st.sessions+n));renderSheet()}
 function stepMove(k,n){syncInputs();const a=ui.form.steps;[a[k],a[k+n]]=[a[k+n],a[k]];renderSheet()}
 function stepDel(k){syncInputs();ui.form.steps.splice(k,1);renderSheet()}
@@ -1141,16 +1141,17 @@ function afterHtml(){const i=itemById(ui.sheet.id);if(!i)return'';const rem=i.se
   if(i.completed)return `<h2>🎉 « ${h(i.title)} » est terminé !</h2>${lu}<div class="sub">${i.done} séance${i.done>1?'s':''} au total.</div>
     <div class="btnrow"><button class="btn ghost" onclick="needMore('${i.id}')">En fait, il m'en faut encore une</button><button class="btn" onclick="closeSheet()">Super</button></div>`;
   const sst=ui.sheet.step&&hasSteps(i)?i.steps.find(z=>z.id===ui.sheet.step):null;
-  const stepMsg=sst&&ui.sheet.stepDone?`<div class="hint">✅ Étape « ${h(sst.label)} » terminée ! Encore ${i.steps.filter(z=>z.done<z.sessions).length} étape${i.steps.filter(z=>z.done<z.sessions).length>1?'s':''}.</div>`:'';
-  return `<h2>${h(ui.sheet.cheer||'Bien joué !')}</h2>${lu}${stepMsg}<div class="sub">« ${h(i.title)} » : encore ${rem} séance${rem>1?'s':''} de prévue${rem>1?'s':''}. C'était comment ?</div>
-   <div class="stack"><button class="btn" onclick="closeSheet()">Ça avance comme prévu</button>
-   <button class="btn ghost" onclick="finishItem('${i.id}')">J'ai déjà tout fini</button>
-   <button class="btn ghost" onclick="needMore('${i.id}','${ui.sheet.step||''}')">C'est plus long que prévu : +1 séance</button></div>`}
+  const stepMsg=sst&&ui.sheet.stepDone?`<div class="hint"><span style="color:var(--ok);display:inline-flex;vertical-align:middle;margin-right:4px">${MS('check_circle')}</span>Étape « ${h(sst.label)} » terminée ! Encore ${i.steps.filter(z=>z.done<z.sessions).length} étape${i.steps.filter(z=>z.done<z.sessions).length>1?'s':''}.</div>`:'';
+  return `<h2>${h(ui.sheet.cheer||'Bien joué !')}</h2>${lu}${stepMsg}<div class="sub">C'était comment ?</div>
+   <div class="stack"><button class="btn" onclick="closeSheet()">Ça a pris le temps prévu</button>
+   <button class="btn ghost" onclick="finishItem('${i.id}')">Ça m'a pris moins de temps</button>
+   <button class="btn ghost" onclick="needMore('${i.id}','${ui.sheet.step||''}')">Ça a pris plus de temps que prévu</button></div>`}
 function needMore(id,sid){const i=itemById(id);if(i.completed)uncomplete(i);if(hasSteps(i)){const st=i.steps.find(z=>z.id===sid)||i.steps[i.steps.length-1];st.sessions++;syncSteps(i)}else i.sessions++;commit();closeSheet()}
 
 /* calendar + settings actions */
-function moveMonth(n){const[y,m]=ui.calMonth.split('-').map(Number);const d=new Date(y,m-1+n,1);ui.calMonth=d.getFullYear()+'-'+pad(d.getMonth()+1);render()}
-function selDay(d){ui.selDay=d;if(d.slice(0,7)!==ui.calMonth)ui.calMonth=d.slice(0,7);render()}
+function calStartDay(){if(!ui.calStart){const t=today();ui.calStart=addDays(t,-((parse(t).getDay()+6)%7))}return ui.calStart}
+function moveMonth(n){ui.calStart=addDays(calStartDay(),28*n);render()}
+function selDay(d){ui.selDay=d;render()}
 function setOverride(d,v){if(v==null)delete S.dayOverride[d];else S.dayOverride[d]=v;
   const t=today();Object.keys(S.dayOverride).forEach(k=>{if(k<addDays(t,-60))delete S.dayOverride[k]});commit();render()}
 function setTheme(k){S.settings.theme=k;applyTheme();commit();render()}
