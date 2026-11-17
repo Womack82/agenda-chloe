@@ -330,7 +330,8 @@ h2{font-size:17px;font-weight:700;line-height:24px}
 .legend2 img{width:16px;height:16px;border-radius:5px}
 /* task cards */
 .tcard{position:relative;background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:12px 12px 12px 18px;display:flex;align-items:flex-start;gap:12px;overflow:hidden}
-.tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:0 4px 4px 0;background:var(--c)}
+.tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:0 4px 4px 0;background:var(--sc,var(--c))}
+.tcard .tpill,.tcard .stepbadge{color:var(--ink)}
 .tchk{flex:none;width:38px;height:38px;border-radius:50%;border:2px solid var(--line);background:var(--chip2);display:grid;place-items:center;color:transparent;transition:transform .15s,background .15s}
 .tchk:active{transform:scale(.85)}
 .tchk .ms{font-size:22px}
@@ -457,7 +458,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.8'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.9'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -728,7 +729,7 @@ function taskRow(it,opts){
   const sess=opts.session?(st?'Séance '+opts.session+'/'+st.sessions:'Séance '+opts.session+'/'+it.sessions)+' ('+fmtMin(sm)+')':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
   const chk=opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
-  return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--c:${sc}"`:''}>${chk}
+  return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
     <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
       <h4>${h(it.title)}</h4>
       ${st?`<div class="tstep"><span class="stepbadge">Étape ${stepN}/${it.steps.length}</span><span style="${stepOn?'text-decoration:line-through;opacity:.5':''}">${h(st.label)}</span></div>`:''}
