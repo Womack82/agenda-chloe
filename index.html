@@ -391,7 +391,7 @@ nav .add .ms{font-size:30px;stroke-width:2.8}
 .btn:active{transform:scale(.98)}
 .btn .ms{font-size:22px}
 .flabel{font-size:13px;font-weight:700;color:var(--ink);padding:0 2px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.flabel small{font-size:11px;font-weight:800;color:var(--mute);display:inline-flex;align-items:center;gap:3px}
+.flabel small{font-size:11px;font-weight:800;color:var(--mute);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex:none}
 .fgroup{display:flex;flex-direction:column;gap:6px}
 .typecards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .tcd{position:relative;border:0;border-radius:16px;background:var(--card);box-shadow:var(--shadow);padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ink);transition:transform .12s}
@@ -455,7 +455,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.4'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.5'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
