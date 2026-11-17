@@ -454,7 +454,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.1'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.2'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -791,10 +791,10 @@ function viewToday(){
   const late=S.items.filter(i=>!i.completed&&i.due<t);
   const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=S.settings.name?' '+h(S.settings.name):'';
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
-  let html=`<div class="stack"><section class="hero2"><div><div class="eyebrow">${h(hd)}</div><h1>${hello}${nm} ! 👋</h1></div>
+  let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div><span class="sp" style="flex:none">${MS('schedule')}${todayLeft?fmtMin(todayLeft*sm)+' restantes':'Fini pour aujourd\'hui'}</span></div><h1>${hello}${nm} ! 👋</h1>
    <p>${todayLeft?`Encore <strong>${todayLeft} séance${todayLeft>1?'s':''}</strong> prévue${todayLeft>1?'s':''} pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
-   <div class="spills"><span class="sp">${MS('schedule')}${todayLeft?fmtMin(todayLeft*sm)+' restantes':'Fini pour aujourd\'hui'}</span><span class="sp ok">${MS('check_circle')}${fmtMin(weekDone*sm)} faites cette sem.</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
-   <div class="status">${statusHtml()}</div></section>`;
+   <div class="spills">${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
+   </section>`;
   if(late.length)html+=`<div class="alert" style="border-left-color:var(--bad);background:var(--ctl-soft)"><b>En retard :</b> ${late.map(i=>h(i.title)).join(', ')}. Si c'est déjà remis, marque-le terminé dans « Mes travaux ».</div>`;
   if(over.length)html+=`<div class="alert"><b>Trop de travail ${over.length===1?'le '+h(longDate(over[0])):'certains soirs'}.</b> Avance un peu aujourd'hui si tu peux.</div>`;
   // two-week grid (remises seulement)
