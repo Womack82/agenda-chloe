@@ -111,6 +111,7 @@ h2{font-size:20px;font-weight:700}
 
 /* calendar */
 .calhead{display:flex;justify-content:space-between;align-items:center}
+.cell .mo{display:block;font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.03em;line-height:12px}
 .iconbtn{width:40px;height:40px;border-radius:12px;border:0;background:var(--card);box-shadow:var(--shadow);font-size:18px;font-weight:800}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
 .wd{font-size:11px;font-weight:800;color:var(--mute);text-align:center;text-transform:uppercase;padding:4px 0}
@@ -458,7 +459,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.12'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.13'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -848,16 +849,11 @@ function viewToday(){
   return html;
 }
 
-function monthRange(start){const a=parse(start),b=parse(addDays(start,27));const cap=s=>s.replace(/^./,c=>c.toUpperCase());
-  const ma=MOIS[a.getMonth()],mb=MOIS[b.getMonth()];
-  if(a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth())return cap(ma)+' '+a.getFullYear();
-  if(a.getFullYear()===b.getFullYear())return cap(ma)+' – '+cap(mb)+' '+b.getFullYear();
-  return cap(ma)+' '+a.getFullYear()+' – '+cap(mb)+' '+b.getFullYear()}
 function viewCalendar(){
   const t=today(),P=computePlan(),sm=blockMin();
   const start=calStartDay();
   let html=`<div class="stack"><div class="calhead"><button class="iconbtn" onclick="moveMonth(-1)" aria-label="Quatre semaines précédentes">‹</button>
-    <h1 style="font-size:20px">${monthRange(start)}</h1>
+    <h1 style="font-size:18px">${shortDate(start)} – ${shortDate(addDays(start,27))}</h1>
     <button class="iconbtn" onclick="moveMonth(1)" aria-label="Quatre semaines suivantes">›</button></div>
     <div class="grid">${['lun','mar','mer','jeu','ven','sam','dim'].map(w=>`<div class="wd">${w}</div>`).join('')}`;
   for(let k=0;k<28;k++){
@@ -868,7 +864,7 @@ function viewCalendar(){
       if(l)loadBar=`<span class="load"><i class="${l>c?'over':l===c?'full':''}" style="width:${pct}%"></i></span>`;}
     const evs=eventsOn(d);const blocked=evs.some(e=>e.free===0);
     html+=`<button class="cell ${inM?'':'out'} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
-      <span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.slice(0,3).map(calChip).join('')}${dues.length>3?`<span class="more">+${dues.length-3}</span>`:''}</span>${loadBar}</button>`;
+      ${(k===0||parse(d).getDate()===1)?`<span class="mo">${MC[parse(d).getMonth()]} ${parse(d).getFullYear()}</span>`:''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.slice(0,3).map(calChip).join('')}${dues.length>3?`<span class="more">+${dues.length-3}</span>`:''}</span>${loadBar}</button>`;
   }
   html+=`</div><div class="legend"></div><div class="legend2"><span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}</div><div class="sub" style="font-size:12px">Pastille = à remettre (couleur = matière, icône = type). Barre = travail prévu ce jour-là.</div></div>`;
   // selected day
