@@ -458,7 +458,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.9'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.10'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -883,6 +883,10 @@ function viewCalendar(){
     if(doneItems.length){html+=`<div class="sub" style="font-weight:800">Travail fait</div>`;doneItems.forEach(i=>html+=`<div class="row ${typeCls(i.type)} done"><div class="main"><span class="title">${h(i.title)}</span><span class="meta">${h(i.subject)}</span></div></div>`)}
     else if(!dues.length)html+=`<div class="card empty">Rien ce jour-là.</div>`;
   }
+  html+=`</div>`;
+  const upcoming=S.items.filter(i=>!i.completed&&i.due>=t&&i.due!==d).sort((a,b)=>a.due<b.due?-1:1);
+  html+=`<div class="section"><h2>Travaux à venir</h2>`;
+  if(upcoming.length)html+=upcoming.map(i=>listRow(i)).join('');else html+=`<div class="card empty">Aucun autre travail à venir.</div>`;
   html+=`</div>`;
   return html;
 }
