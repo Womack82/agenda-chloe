@@ -554,27 +554,15 @@ async function initFirebase(){
     firebase.initializeApp(FIREBASE_CONFIG);
   }catch(e){sync='error';renderStatus();return}
   const auth=firebase.auth();
-  if(auth.isSignInWithEmailLink(location.href)){
-    let email=null;try{email=localStorage.getItem('agenda-email')}catch(e){}
-    if(email){await finishLink(email)}else{ui.auth={step:'confirm'};render()}
-  }
   auth.onAuthStateChanged(u=>{
     if(!u){if(!ui.auth||ui.auth.step==='done')ui.auth={step:'email'};render();return}
     fbUser=u;ui.auth=null;connectFirestore();render();
   });
 }
-async function sendLink(e){e.preventDefault();const email=(document.getElementById('authEmail').value||'').trim().toLowerCase();
-  if(!/^\S+@\S+\.\S+$/.test(email)){ui.auth.err='Écris une adresse courriel valide.';render();return}
-  ui.auth={step:'sending',email};render();
-  try{await firebase.auth().sendSignInLinkToEmail(email,{url:location.origin+location.pathname,handleCodeInApp:true});
-    try{localStorage.setItem('agenda-email',email)}catch(x){}ui.auth={step:'sent',email}}
-  catch(x){ui.auth={step:'email',err:'Envoi impossible ('+(x.code||'erreur')+'). Réessaie dans un moment.'}}
-  render()}
-async function confirmEmail(e){e.preventDefault();const email=(document.getElementById('authEmail').value||'').trim().toLowerCase();await finishLink(email)}
-async function finishLink(email){
-  try{await firebase.auth().signInWithEmailLink(email,location.href);try{localStorage.setItem('agenda-email',email)}catch(x){}
-    history.replaceState(null,'',location.pathname+location.hash);ui.auth={step:'done'}}
-  catch(x){ui.auth={step:'email',err:'Ce lien ne fonctionne plus (déjà utilisé ou expiré). Demande un nouveau lien.'};render()}}
+async function signInGoogle(){
+  ui.auth={step:'sending'};render();
+  try{await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider())}
+  catch(x){ui.auth={step:'email',err:x.code==='auth/popup-closed-by-user'?'Connexion annulée. Réessaie quand tu veux.':'Connexion impossible ('+(x.code||'erreur')+'). Réessaie dans un moment.'};render()}}
 function signOut(){firebase.auth().signOut();dbRef=null;sync='local';ui.auth={step:'email'};render()}
 async function connectFirestore(){
   const doc=firebase.firestore().collection('agendas').doc(AGENDA_ID);
@@ -592,12 +580,11 @@ async function connectFirestore(){
 }
 function authView(){const a=ui.auth;const nm=S.settings.name;
   let body='';
-  if(a.step==='sent')body=`<div class="hint"><b>Lien envoyé à ${h(a.email)}.</b><br>Ouvre ce courriel sur cet appareil et touche le lien pour te connecter. Regarde aussi dans les courriels indésirables.</div><button class="btn ghost full" onclick="ui.auth={step:'email'};render()">Utiliser une autre adresse</button>`;
-  else if(a.step==='sending')body=`<div class="card empty">Envoi du lien…</div>`;
+  if(a.step==='sending')body=`<div class="card empty">Connexion en cours…</div>`;
   else if(a.step==='done')body=`<div class="card empty">Connexion…</div>`;
-  else body=`<form class="stack" onsubmit="${a.step==='confirm'?'confirmEmail(event)':'sendLink(event)'}"><label class="f" for="authEmail">${a.step==='confirm'?'Confirme ton adresse courriel pour terminer la connexion':'Ton adresse courriel'}<input type="text" id="authEmail" inputmode="email" autocomplete="email" placeholder="toi@exemple.com"></label>
-    ${a.err?`<div class="hint warn">${h(a.err)}</div>`:''}<button class="btn full" type="submit">${a.step==='confirm'?'Me connecter':'Recevoir un lien de connexion'}</button>
-    <div class="sub">Pas de mot de passe : tu reçois un lien par courriel. Tu restes connectée ensuite sur cet appareil.</div></form>`;
+  else body=`<div class="stack">
+    ${a.err?`<div class="hint warn">${h(a.err)}</div>`:''}<button class="btn full" type="button" onclick="signInGoogle()">Se connecter avec Google</button>
+    <div class="sub">Utilise l'adresse Gmail autorisée pour l'agenda. Tu restes connectée ensuite sur cet appareil.</div></div>`;
   return `<div class="stack" style="min-height:70vh;justify-content:center"><div class="hero"><h1>Agenda de devoirs${nm?' de '+h(nm):''}</h1><div class="sub">Connecte-toi pour retrouver l'agenda partagé.</div></div>${body}</div>`}
 
 /* ---------- copie de sauvegarde ---------- */
