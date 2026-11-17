@@ -454,6 +454,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
+const APP_VERSION = '1.1.0'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -907,7 +908,7 @@ function viewList(){
 
 function viewSettings(){
   const st=S.settings;const order=[1,2,3,4,5,6,0];
-  let html=`<div class="stack"><div class="status">${statusHtml()}</div></div>
+  let html=`<div class="stack"><div class="status">${statusHtml()}</div><div class="sub" style="font-size:12px">Version ${APP_VERSION}</div></div>
   <div class="section"><h2>Ton prénom</h2><input type="text" id="sName" value="${h(st.name)}" placeholder="Pour te dire bonjour" onchange="S.settings.name=this.value.trim();commit()"></div>
   <div class="section"><h2>Ta couleur</h2><div class="swatches">${Object.keys(THEMES).map(k=>`<button class="sw ${st.theme===k?'on':''}" style="--s:${THEMES[k][0]}" onclick="setTheme('${k}')" aria-label="Couleur ${k}"></button>`).join('')}</div></div>
   <div class="section"><h2>Ton rythme</h2><div class="sub">Un travail prévu pour ${st.sessionMin} min te prend en vrai :</div>
