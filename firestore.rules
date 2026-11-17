@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Seules ces 3 adresses peuvent lire et modifier l'agenda.
+    function estDeLaFamille() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'alexandre.yvergniaux@gmail.com',
+          'chloeyvergniaux@gmail.com',
+          'audrey.bourdonnais@gmail.com'
+        ];
+    }
+
+    match /agendas/{agendaId} {
+      allow read, write: if estDeLaFamille();
+    }
+
+    // Tout le reste est fermé.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
