@@ -460,7 +460,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.18'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.19'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -733,8 +733,8 @@ function taskRow(it,opts){
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
   const chk=opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
-    <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
-      <h4>${h(it.title)}</h4>
+    <div class="tmain">${st?'':`<h4>${h(it.title)}</h4>`}<div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
+      ${st?`<h4>${h(it.title)}</h4>`:''}
       ${st?`<div class="tstep"><span class="stepbadge">Étape ${stepN}/${it.steps.length}</span><span style="${stepOn?'text-decoration:line-through;opacity:.5':''}">${h(st.label)}</span></div>`:''}
       ${it.notes&&!opts.done?`<p class="tnote">${h(it.notes)}</p>`:''}
       ${sess&&!opts.done?`<div class="meter">${MS(it.type==='controle'?'alarm':it.type==='projet'?'timelapse':'timer')}${sess}</div>`:''}
