@@ -459,7 +459,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.15'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.16'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1093,7 +1093,7 @@ function formHtml(){
     :`<button class="btn danger" onclick="ui.form.confirmDel=true;renderSheet()">Supprimer ce travail</button>`;
   return html;
 }
-const STEP_IDEAS={devoir:['Exercices','Lire le texte','Répondre aux questions','Vérifier mes réponses'],controle:['Relire mes notes','Faire ma fiche','Exercices de pratique','Me faire questionner'],projet:['Recherche','Faire le plan','Rédiger ma partie','Préparer la présentation']};
+const STEP_IDEAS={devoir:['Exercices','Lire le texte'],controle:['Relire mes notes','Faire ma fiche','Exercices de pratique','Me faire questionner'],projet:['Recherche','Faire le plan','Rédiger ma partie','Préparer la présentation']};
 function stepsHtml(){const f=ui.form,sm=blockMin();
   let html=`<div class="card stack ${typeCls(f.type)}" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>Découper en étapes</b> <span class="sub">(facultatif)</span><div class="sub">Ex. « 3 pages d'exercices » et « lire le texte » : chaque étape sera placée sur un soir différent, dans l'ordre.</div></div>`;
   if(f.steps.length){html+=`<div class="steps">`;f.steps.forEach((st,k)=>{const ok=st.done>=st.sessions;
