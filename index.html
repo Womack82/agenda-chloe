@@ -459,7 +459,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.13'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.14'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -499,12 +499,13 @@ const SIZE_ICONS=[
   // paquet de feuilles empilées
   `<svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><path class="pg" d="M4 20.5l12 5 12-5v3l-12 5-12-5z"/><path class="pg" d="M4 17.5l12 5 12-5v3l-12 5-12-5z"/><path class="pg" d="M4 14.5l12 5 12-5v3l-12 5-12-5z"/><path class="pg" d="M4 11.5l12 5 12-5-12-5z"/><path d="M11 10.5l9-3.6M13.5 12l7-2.8"/></svg>`
 ];
-const DEFAULT_SUBJECTS=['Français','Mathématique','Anglais','Science et techno','Histoire','Culture et citoyenneté','Arts','Éduc. physique'];
+const DEFAULT_SUBJECTS=['Français','Mathématique','Anglais','Science et techno','Histoire','Culture et citoyenneté','Arts'];
 function defaultState(){return{
   v:1,updatedAt:0,items:[],history:[],dayOverride:{},events:[],
   stars:0,settings:{sessionMin:30,pace:1.5,cap:[60,60,60,60,60,30,30],stop:{'0':{at:'18:00',why:'Routine du dimanche soir'}},subjects:DEFAULT_SUBJECTS.slice(),name:'',theme:'menthe'}
 }}
 function normalize(s){const d=defaultState();s=Object.assign(d,s||{});s.settings=Object.assign(defaultState().settings,s.settings||{});
+  if(Array.isArray(s.settings.subjects))s.settings.subjects=s.settings.subjects.filter(x=>x!=='Éduc. physique');
   s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i));
   s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.events=(s.events||[]).filter(e=>e&&e.id);return s}
 
@@ -773,7 +774,7 @@ function subjKey(s){const x=(s||'').toLowerCase().normalize('NFD').replace(/[̀-
   if(/hist/.test(x))return'histoire';if(/citoy|ccq|culture/.test(x))return'ccq';if(/^art/.test(x))return'arts';return null}
 const SUBJ_EMOJI={'Éduc. physique':'🏃','Espagnol':'💬','Musique':'🎵','Géographie':'🗺️'};
 function subjIcon(s){const k=subjKey(s);if(k)return `<img src="img/${k}.png" alt="">`;return `<span class="sfb">${SUBJ_EMOJI[s]||h((s||'•').charAt(0).toUpperCase())}</span>`}
-const SUBJ_COLOR={arts:'#7d45e8',anglais:'#0d97b4',francais:'#e88c0d',histoire:'#d7327e',ccq:'#f26816',maths:'#2e6ae8',sciences:'#0d9b6e'};
+const SUBJ_COLOR={maths:'#E28C48',anglais:'#EBA8A8',sciences:'#B5CA52',histoire:'#5AA53B',francais:'#EFC950',ccq:'#5BB8AE',arts:'#B25FC4'};
 function calChip(i){const k=subjKey(i.subject);const bg=k?SUBJ_COLOR[k]:'var(--outline)';
   const inner=`<img src="img/w-${i.type}.png" alt="">`;
   return `<span class="cchip ${i.completed?'fin':''}" style="background:${bg}" title="${h(TYPES[i.type].label)} de ${h(i.subject||'?')} à remettre : ${h(i.title)}">${inner}</span>`}
