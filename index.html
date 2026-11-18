@@ -459,7 +459,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.16'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.17'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1069,7 +1069,7 @@ function formHtml(){
   let html=`<div class="sethead"><div><span class="eyebrow" style="color:var(--accent)">${editing?'Modifier':'Nouveau travail'}</span><h2 style="margin-top:2px">${editing?'Modifier ce travail':'Ajouter un devoir ou contrôle'}</h2></div></div>
   <div class="fgroup"><span class="flabel">Type de travail</span><div class="typecards">${Object.keys(TYPES).map(k=>`<button class="tcd ${typeCls(k)} ${f.type===k?'on':''}" onclick="setF('type','${k}')">${typeIcon(k)}<b>${k==='projet'?'Projet':TYPES[k].label}</b><small>${tsub[k]}</small><span class="ck">${MS('check')}</span></button>`).join('')}</div></div>
   <div class="fgroup"><span class="flabel">Matière<small>${S.settings.subjects.length} matières</small></span><div class="subjscroll">${S.settings.subjects.map(s=>`<button class="schip ${f.subject===s?'on':''}" onclick="setF('subject',${h(JSON.stringify(s))})">${subjIcon(s)}${h(shortSubj(s))}</button>`).join('')}</div></div>
-  <div class="fgroup"><label class="flabel" for="fTitle">Intitulé de la tâche</label><div class="inbox"><span class="ib">${MS('edit')}</span><input type="text" id="fTitle" value="${h(f.title)}" placeholder="${f.type==='controle'?'ex. Contrôle chapitre 4, fonctions':f.type==='projet'?'ex. Exposé sur la Nouvelle-France':'ex. Exercices p. 112, nos 1 à 8'}" oninput="ui.form.title=this.value"></div></div>
+  ${f.id?`<div class="fgroup"><label class="flabel" for="fTitle">Intitulé de la tâche</label><div class="inbox"><span class="ib">${MS('edit')}</span><input type="text" id="fTitle" value="${h(f.title)}" placeholder="${f.type==='controle'?'ex. Contrôle chapitre 4, fonctions':f.type==='projet'?'ex. Exposé sur la Nouvelle-France':'ex. Exercices p. 112, nos 1 à 8'}" oninput="ui.form.title=this.value"></div></div>`:''}
   <div class="fgroup"><span class="flabel">${f.type==='controle'?'Date du contrôle':'Échéance'}<small>${MS('event_upcoming')}Pour quand ?</small></span>
    <div class="datepills">${qd.map(([d,l])=>`<button class="dpill ${f.due===d?'on':''}" onclick="setF('due','${d}')">${l}<small>${h(shortDate(d))}</small></button>`).join('')}</div>
    <div class="datebar"><span class="l"><span class="ib">${MS('calendar_month')}</span>Choisir une date précise</span><input type="date" id="fDue" value="${f.due}" onchange="setF('due',this.value)" aria-label="Date"></div></div>
@@ -1116,6 +1116,7 @@ function setSize(k){syncInputs();const f=ui.form;if(k<0){f.custom=true}else{f.cu
 function bump(n){syncInputs();ui.form.sessions=Math.max(1,Math.min(20,ui.form.sessions+n));renderSheet()}
 function saveForm(){
   syncInputs();const f=ui.form;
+  if(!f.id&&!(f.title||'').trim())f.title=TYPES[f.type].label+(f.subject?' · '+f.subject:'');
   if(!f.title.trim()){const e=document.getElementById('fTitle');e.placeholder='Écris un nom pour ce travail';e.style.borderColor='var(--bad)';e.focus();return}
   if(!f.due)return;
   const steps=f.steps.map((st,k)=>Object.assign({},st,{label:(st.label||'').trim()||('Étape '+(k+1))}));
