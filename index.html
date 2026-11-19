@@ -464,7 +464,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.34'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.35'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -733,12 +733,12 @@ function go(v){if(v==='today'){ui.selDay=today();ui.calStart=null;ui.homeDay=nul
 function taskRow(it,opts){
   const st=opts.step||null;const sarg=st?`,'${st.id}'`:'';const sm=blockMin();
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
-  const sess=opts.session?(st?'Séance '+opts.session+'/'+st.sessions:'Séance '+opts.session+'/'+it.sessions)+' ('+fmtMin(sm)+')':'';
+  const sess=opts.session?fmtMin(S.settings.sessionMin)+' à faire':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
   const chk=opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
-    <div class="tmain">${st?'':`<h4>${h(it.title)}</h4>`}<div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
-      ${st?`<h4>${h(it.title)}</h4>`:''}
+    <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
+      <h4>${h(it.title)}</h4>
       ${st?`<div class="tstep"><span class="stepbadge">Étape ${stepN}/${it.steps.length}</span><span style="${stepOn?'text-decoration:line-through;opacity:.5':''}">${h(st.label)}</span></div>`:''}
       ${it.notes&&!opts.done?`<p class="tnote">${h(it.notes)}</p>`:''}
       ${sess&&!opts.done?`<div class="meter">${MS(it.type==='controle'?'alarm':it.type==='projet'?'timelapse':'timer')}${sess}</div>`:''}
@@ -803,7 +803,7 @@ function viewToday(){
   const late=S.items.filter(i=>!i.completed&&i.due<t);
   const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=' Chloé';
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
-  let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div><span class="sp" style="flex:none">${MS('schedule')}${todayLeft?fmtMin(todayLeft*sm)+' restantes':'Fini pour aujourd\'hui'}</span></div><h1>${hello}${nm} ! 👋</h1>
+  let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div>${todayLeft?'':`<span class="sp" style="flex:none">${MS('schedule')}Fini pour aujourd'hui</span>`}</div><h1>${hello}${nm} ! 👋</h1>
    <p>${todayLeft?`Encore <strong>${todayLeft} séance${todayLeft>1?'s':''}</strong> prévue${todayLeft>1?'s':''} pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
    <div class="spills"><span class="streak" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
    </section>`;
@@ -834,7 +834,7 @@ function viewToday(){
   const planned=d>=t?(P.plan[d]||[]):[];
   const doneHere=[];S.items.forEach(i=>{(i.log||[]).forEach((x,k)=>{if(x===d)doneHere.push({it:i,st:hasSteps(i)?i.steps.find(z=>z.id===(i.slog||[])[k]):null})})});
   const dues=S.items.filter(i=>i.due===d&&!i.completed);
-  html+=`<div class="section"><div class="section-head"><h2>${h(title)}${planned.length?`<span class="cnt">${planned.length} séance${planned.length>1?'s':''}</span>`:''}</h2><span class="sub">${planned.length?'~ '+fmtMin(planned.length*sm)+' au total':''}</span></div>`;
+  html+=`<div class="section"><div class="section-head"><h2>${h(title)}</h2><span class="sub">${planned.length?'~ '+fmtMin(planned.length*S.settings.sessionMin)+' au total':''}</span></div>`;
   eventsOn(d).forEach(e=>html+=`<div class="hint">${h(e.label)} : ${freeLabel(e.free)}.</div>`);
   {const x=stopFor(d);if(x){const ml=d===t?minutesLeftToday():null;html+=`<div class="hint">${h(x.why||'Fin des devoirs')} : pas de devoirs après ${h(x.at.replace(':00',' h').replace(':',' h '))}${ml===0?'. C\'est fini pour aujourd\'hui, le reste est déplacé aux jours suivants.':'.'}</div>`}}
   if(dues.length)html+=`<div class="sub" style="font-weight:800">À remettre ce jour-là : ${dues.map(i=>h(i.title)).join(', ')}</div>`;
