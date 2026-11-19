@@ -396,7 +396,7 @@ nav .add .ms{font-size:30px;stroke-width:2.8}
 .btn:active{transform:scale(.98)}
 .btn .ms{font-size:22px}
 .flabel{font-size:13px;font-weight:700;color:var(--ink);padding:0 2px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.flabel small{font-size:11px;font-weight:800;color:var(--mute);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex:none;line-height:16px;padding:2px 0}
+.flabel small{font-size:11px;font-weight:800;color:var(--mute);display:inline-flex;align-items:center;gap:3px;white-space:nowrap;flex:none;line-height:normal;padding:3px 0 5px}
 .flabel small .ms{width:14px;height:14px;font-size:14px;overflow:visible}
 .fgroup{display:flex;flex-direction:column;gap:6px}
 .typecards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -461,7 +461,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.21'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.22'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -508,7 +508,7 @@ function defaultState(){return{
 }}
 function normalize(s){const d=defaultState();s=Object.assign(d,s||{});s.settings=Object.assign(defaultState().settings,s.settings||{});
   if(Array.isArray(s.settings.subjects))s.settings.subjects=s.settings.subjects.filter(x=>x!=='Éduc. physique');
-  s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i));
+  s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i)).map(i=>{if(i.notes&&String(i.notes).trim()){i.title=String(i.title||'').trim()+' – '+String(i.notes).trim();i.notes=''}return i});
   s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.events=(s.events||[]).filter(e=>e&&e.id);return s}
 
 let S=defaultState();
@@ -1070,8 +1070,8 @@ function formHtml(){
   const t0=today(),qd=[[addDays(t0,1),'Demain']];{let x=addDays(t0,1);while(parse(x).getDay()!==5)x=addDays(x,1);if(x!==qd[0][0])qd.push([x,'Ce vendredi']);let y=addDays(t0,1);while(parse(y).getDay()!==1)y=addDays(y,1);qd.push([y,'Lundi proch.'])}
   let html=`<div class="sethead"><div><span class="eyebrow" style="color:var(--accent)">${editing?'Modifier':'Nouveau travail'}</span><h2 style="margin-top:2px">${editing?'Modifier ce travail':'Ajouter un devoir ou contrôle'}</h2></div></div>
   <div class="fgroup"><span class="flabel">Type de travail</span><div class="typecards">${Object.keys(TYPES).map(k=>`<button class="tcd ${typeCls(k)} ${f.type===k?'on':''}" onclick="setF('type','${k}')">${typeIcon(k)}<b>${k==='projet'?'Projet':TYPES[k].label}</b><small>${tsub[k]}</small><span class="ck">${MS('check')}</span></button>`).join('')}</div></div>
-  <div class="fgroup"><span class="flabel">Matière<small>${S.settings.subjects.length} matières</small></span><div class="subjscroll">${S.settings.subjects.map(s=>`<button class="schip ${f.subject===s?'on':''}" onclick="setF('subject',${h(JSON.stringify(s))})">${subjIcon(s)}${h(shortSubj(s))}</button>`).join('')}</div></div>
-  ${f.id?`<div class="fgroup"><label class="flabel" for="fTitle">Intitulé de la tâche</label><div class="inbox"><span class="ib">${MS('edit')}</span><input type="text" id="fTitle" value="${h(f.title)}" placeholder="${f.type==='controle'?'ex. Contrôle chapitre 4, fonctions':f.type==='projet'?'ex. Exposé sur la Nouvelle-France':'ex. Exercices p. 112, nos 1 à 8'}" oninput="ui.form.title=this.value"></div></div>`:''}
+  <div class="fgroup">${f.err?`<div class="hint warn">${h(f.err)}</div>`:''}<span class="flabel">Matière<small>${S.settings.subjects.length} matières</small></span><div class="subjscroll">${S.settings.subjects.map(s=>`<button class="schip ${f.subject===s?'on':''}" onclick="setF('subject',${h(JSON.stringify(s))})">${subjIcon(s)}${h(shortSubj(s))}</button>`).join('')}</div></div>
+  <div class="fgroup"><label class="flabel" for="fTitle">Intitulé de la tâche</label><div class="inbox"><span class="ib">${MS('edit')}</span><input type="text" id="fTitle" value="${h(f.title)}" placeholder="${f.type==='controle'?'ex. Contrôle chapitre 4, fonctions':f.type==='projet'?'ex. Exposé sur la Nouvelle-France':'ex. Exercices p. 112, nos 1 à 8'}" oninput="ui.form.title=this.value"></div></div>
   <div class="fgroup"><span class="flabel">${f.type==='controle'?'Date du contrôle':'Échéance'}<small>${MS('event_upcoming')}Pour quand ?</small></span>
    <div class="datepills">${qd.map(([d,l])=>`<button class="dpill ${f.due===d?'on':''}" onclick="setF('due','${d}')">${l}<small>${h(shortDate(d))}</small></button>`).join('')}</div>
    <div class="datebar"><span class="l"><span class="ib">${MS('calendar_month')}</span>Choisir une date précise</span><input type="date" id="fDue" value="${f.due}" onchange="setF('due',this.value)" aria-label="Date"></div></div>
@@ -1087,7 +1087,6 @@ function formHtml(){
   if(f.due){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const need=Math.max(0,fSess-fDone);
     if(need>free)html+=`<div class="hint warn">D'ici là, il reste environ ${fmtMin(free*sm)} de libre et ce travail demande ${fmtMin(need*sm)}. Certains soirs vont déborder : commence dès que possible ou ajoute du temps dans le calendrier.</div>`;
     else if(f.type==='controle'&&!f.steps.length)html+=`<div class="hint">Les ${need} révisions seront placées dans les soirs avant le contrôle.</div>`;}
-  html+=`<label class="f" for="fNotes">Notes (facultatif)<textarea id="fNotes" placeholder="${f.type==='projet'?'Coéquipiers, qui fait quoi, date de rencontre…':'Pages, chapitres, consignes…'}" oninput="ui.form.notes=this.value">${h(f.notes)}</textarea></label>`;
   if(editing&&it){html+=`<div class="card stack" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>${it.done}/${it.sessions} séances faites</b></div><div class="btnrow">
     ${it.completed?`<button class="btn ghost" onclick="reopen('${it.id}')">Remettre à faire</button>`:`<button class="btn ghost" onclick="finishItem('${it.id}')">C'est terminé ✓</button>`}</div></div>`}
   html+=`<button class="btn full" onclick="saveForm()">${MS(editing?'save':'calendar_add_on')}${editing?'Enregistrer':'Planifier automatiquement'}</button>`;
@@ -1113,11 +1112,12 @@ function stepMove(k,n){syncInputs();const a=ui.form.steps;[a[k],a[k+n]]=[a[k+n],
 function stepDel(k){syncInputs();ui.form.steps.splice(k,1);renderSheet()}
 function computePlanExcluding(id){if(!id)return computePlan();const keep=S.items;S.items=S.items.filter(i=>i.id!==id);const P=computePlan();S.items=keep;return P}
 function syncInputs(){syncSteps_();const t=document.getElementById('fTitle');if(t)ui.form.title=t.value;const n=document.getElementById('fNotes');if(n)ui.form.notes=n.value}
-function setF(k,v){syncInputs();ui.form[k]=v;if(k==='type'&&!ui.form.custom){ui.form.sessions=TYPES[v].sizes[Math.max(0,ui.form.size)]}renderSheet()}
+function setF(k,v){syncInputs();ui.form[k]=v;if(k==='subject')ui.form.err=null;if(k==='type'&&!ui.form.custom){ui.form.sessions=TYPES[v].sizes[Math.max(0,ui.form.size)]}renderSheet()}
 function setSize(k){syncInputs();const f=ui.form;if(k<0){f.custom=true}else{f.custom=false;f.size=k;f.sessions=TYPES[f.type].sizes[k]}renderSheet()}
 function bump(n){syncInputs();ui.form.sessions=Math.max(1,Math.min(20,ui.form.sessions+n));renderSheet()}
 function saveForm(){
   syncInputs();const f=ui.form;
+  if(!f.subject){f.err='Choisis une matière avant d\'enregistrer.';renderSheet();return}
   if(!f.id&&!(f.title||'').trim())f.title=TYPES[f.type].label+(f.subject?' · '+f.subject:'');
   if(!f.title.trim()){const e=document.getElementById('fTitle');e.placeholder='Écris un nom pour ce travail';e.style.borderColor='var(--bad)';e.focus();return}
   if(!f.due)return;
