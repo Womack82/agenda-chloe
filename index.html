@@ -461,7 +461,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.22'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.23'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -725,7 +725,7 @@ function statusHtml(){
 }
 function renderStatus(){document.querySelectorAll('.status').forEach(e=>e.innerHTML=statusHtml())}
 function typeCls(t){return 't-'+t}
-function go(v){ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
+function go(v){if(v==='today'){ui.selDay=today();ui.calStart=null;ui.homeDay=null}ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
 
 function taskRow(it,opts){
   const st=opts.step||null;const sarg=st?`,'${st.id}'`:'';const sm=blockMin();
