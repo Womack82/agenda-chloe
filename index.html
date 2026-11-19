@@ -461,7 +461,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.24'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.25'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1077,7 +1077,7 @@ function formHtml(){
    <div class="datebar"><span class="l"><span class="ib">${MS('calendar_month')}</span>Choisir une date précise</span><input type="date" id="fDue" value="${f.due}" onchange="setF('due',this.value)" aria-label="Date"></div></div>
   ${stepsHtml()}
   ${f.steps.length?'':`<div class="fgroup"><span class="flabel">${f.type==='controle'?'Combien de matière à réviser ?':'Taille estimée de l\'effort'}<small style="color:var(--ok)">${MS('speed')}Adapté à ton rythme</small></span>
-   <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*sm)}</small></button>`).join('')}
+   <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*S.settings.sessionMin)}</small></button>`).join('')}
    <button class="opt ${f.custom?'on':''}" onclick="setSize(-1)"><svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="4" width="14" height="22" rx="2" class="pg" stroke-dasharray="3 2.5"/><path d="M16 11v8M12 15h8"/></svg>Autre<small>à choisir</small></button></div></div>`}`;
   if(f.custom&&!f.steps.length)html+=`<div class="stepper"><button onclick="bump(-1)" aria-label="Une séance de moins">−</button><b>${f.sessions} séance${f.sessions>1?'s':''}</b><button onclick="bump(1)" aria-label="Une séance de plus">+</button><span class="sub">≈ ${fmtMin(f.sessions*sm)}</span></div>`;
   // hints
@@ -1099,9 +1099,9 @@ function stepsHtml(){const f=ui.form,sm=blockMin();
   let html=`<div class="card stack ${typeCls(f.type)}" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>Découper en étapes</b> <span class="sub">(facultatif)</span><div class="sub">Ex. « 3 pages d'exercices » et « lire le texte » : chaque étape sera placée sur un soir différent, dans l'ordre.</div></div>`;
   if(f.steps.length){html+=`<div class="steps">`;f.steps.forEach((st,k)=>{const ok=st.done>=st.sessions;
     html+=`<div class="stepr">${ok?`<button class="num ok" style="border:0;padding:0;font:inherit" onclick="stepUndo(${k})" aria-label="Remettre cette étape à faire">✓</button>`:`<span class="num">${k+1}</span>`}<input type="text" id="st_${k}" value="${h(st.label)}" placeholder="Étape ${k+1}" oninput="ui.form.steps[${k}].label=this.value" aria-label="Nom de l'étape ${k+1}">
-      <span class="ctl"><button onclick="stepBump(${k},-1)" aria-label="Moins de temps">−</button><b>${fmtMin(st.sessions*sm)}</b><button onclick="stepBump(${k},1)" aria-label="Plus de temps">+</button></span>
+      <span class="ctl"><button onclick="stepBump(${k},-1)" aria-label="Moins de temps">−</button><b>${fmtMin(st.sessions*S.settings.sessionMin)}</b><button onclick="stepBump(${k},1)" aria-label="Plus de temps">+</button></span>
       <span class="tools">${k>0?`<button onclick="stepMove(${k},-1)">↑ Monter</button>`:''}${k<f.steps.length-1?`<button onclick="stepMove(${k},1)">↓ Descendre</button>`:''}<button onclick="stepDel(${k})">✕ Retirer</button></span></div>`});
-    html+=`</div><div class="sub" style="font-weight:800">Total : ${fmtMin(f.steps.reduce((a,x)=>a+x.sessions,0)*sm)}</div>`}
+    html+=`</div><div class="sub" style="font-weight:800">Total : ${fmtMin(f.steps.reduce((a,x)=>a+x.sessions,0)*S.settings.sessionMin)}</div>`}
   html+=`<div class="chips">${STEP_IDEAS[f.type].map(x=>`<button class="opt" style="padding:6px 10px" onclick="stepAdd(${h(JSON.stringify(x))})">+ ${h(x)}</button>`).join('')}<button class="opt" style="padding:6px 10px" onclick="stepAdd('')">+ Autre étape</button></div></div>`;
   return html}
 function syncSteps_(){(ui.form.steps||[]).forEach((st,k)=>{const e=document.getElementById('st_'+k);if(e)st.label=e.value})}
