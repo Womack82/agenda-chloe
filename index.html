@@ -463,7 +463,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.32'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.33'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -930,13 +930,10 @@ function viewList(){
 function viewSettings(){
   const st=S.settings;const order=[1,2,3,4,5,6,0];
   let html=`<div class="stack"><div class="status">${statusHtml()}</div><div class="sub" style="font-size:12px">Version ${APP_VERSION}</div></div>
-  <div class="section"><h2>Ton prénom</h2><input type="text" id="sName" value="${h(st.name)}" placeholder="Pour te dire bonjour" onchange="S.settings.name=this.value.trim();commit()"></div>
   <div class="section"><h2>Ta couleur</h2><div class="swatches">${Object.keys(THEMES).map(k=>`<button class="sw ${st.theme===k?'on':''}" style="--s:${THEMES[k][0]}" onclick="setTheme('${k}')" aria-label="Couleur ${k}"></button>`).join('')}</div></div>
   <div class="section"><h2>Ton rythme</h2><div class="sub">Un travail prévu pour ${st.sessionMin} min te prend en vrai :</div>
    <div class="seg c4">${[[1,'pareil'],[1.25,''],[1.5,''],[2,'']].map(([v])=>`<button class="opt ${(st.pace||1)===v?'on':''}" onclick="setPace(${v})">${fmtMin(Math.round(st.sessionMin*v/5)*5)}<small>${v===1?'comme prévu':'×'+String(v).replace('.',',')}</small></button>`).join('')}</div>
    <div class="sub">L'app prévoit ce temps-là pour chaque séance, alors le plan colle à ton vrai rythme. Prendre plus de temps, c'est correct : l'important c'est que le plan soit réaliste.</div></div>
-  <div class="section"><h2>Durée d'une séance</h2><div class="seg c3">${[20,30,45].map(v=>`<button class="opt ${st.sessionMin===v?'on':''}" onclick="setSession(${v})">${v} min</button>`).join('')}</div>
-  <div class="sub">La durée « officielle » d'une séance (ce qu'un prof estimerait). Petit devoir = 1 séance. Avec ton rythme, une séance dure ${fmtMin(blockMin())}.</div></div>
   <div class="section"><h2>Temps pour les devoirs</h2><div class="card">`;
   order.forEach(w=>{const sp=(st.stop||{})[String(w)];html+=`<div class="wkrow"><span style="font-weight:700">${JOURS[w].replace(/^./,c=>c.toUpperCase())}${sp?`<br><span class="sub" style="font-weight:600">fini à ${h(sp.at.replace(':',' h '))}</span>`:''}</span>
     <span class="stepper"><button onclick="setCap(${w},-15)" aria-label="Moins de temps le ${JOURS[w]}">−</button><b>${st.cap[w]?fmtMin(st.cap[w]):'congé'}</b><button onclick="setCap(${w},15)" aria-label="Plus de temps le ${JOURS[w]}">+</button></span></div>`});
