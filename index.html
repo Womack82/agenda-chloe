@@ -118,6 +118,7 @@ h2{font-size:20px;font-weight:700}
 .cell{min-height:68px;border-radius:10px;background:var(--card);border:0;padding:4px 3px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0}
 .cell.out{opacity:.35}
 .cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cell.wkend:not(.sel):not(.today){background:var(--line)}
 .cell.sel{background:var(--accent);color:#fff}
 .cell .minis{width:100%;display:flex;flex-direction:column;gap:2px}
 .cell .dmi{font-size:10px}
@@ -463,7 +464,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.33'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.34'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -868,7 +869,7 @@ function viewCalendar(){
     if(d>=t&&P.load[d]!=null){const c=P.cap[d],l=P.load[d];const pct=c?Math.min(100,l/c*100):(l?100:0);
       if(l)loadBar=`<span class="load"><i class="${l>c?'over':l===c?'full':''}" style="width:${pct}%"></i></span>`;}
     const evs=eventsOn(d);const blocked=evs.some(e=>e.free===0);
-    html+=`<button class="cell ${inM?'':'out'} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
+    html+=`<button class="cell ${inM?'':'out'} ${[0,6].includes(parse(d).getDay())?'wkend':''} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
       ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}${(k===0||parse(d).getDate()===1)?`<span class="mo">${MC[parse(d).getMonth()]} ${parse(d).getFullYear()}</span>`:''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.slice(0,3).map(calChip).join('')}${dues.length>3?`<span class="more">+${dues.length-3}</span>`:''}</span>${loadBar}</button>`;
   }
   html+=`</div><div class="legend"></div><div class="legend2"><span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}</div><div class="sub" style="font-size:12px">Pastille = à remettre (couleur = matière, icône = type). Barre = travail prévu ce jour-là.</div></div>`;
