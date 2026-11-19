@@ -239,6 +239,8 @@ textarea{min-height:64px;resize:vertical}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{color:#0b1715}}
 .btn.ghost{background:var(--paper);color:var(--ink);border:1.5px solid var(--line)}
 .btn.danger{background:transparent;color:var(--bad);border:1.5px solid var(--bad)}
+:root:not([data-theme="light"]) .btn.ghost,:root[data-theme="dark"] .btn.ghost{color:var(--ink)}
+:root:not([data-theme="light"]) .btn.danger,:root[data-theme="dark"] .btn.danger{color:var(--bad)}
 .btn.full{width:100%}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
 .btnrow .btn{flex:1}
@@ -459,7 +461,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.20'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.21'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
