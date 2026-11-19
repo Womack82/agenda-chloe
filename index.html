@@ -461,7 +461,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.23'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.24'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -798,7 +798,7 @@ function viewToday(){
   const monday=wkend?addDays(t,parse(t).getDay()===6?2:1):addDays(t,-((parse(t).getDay()+6)%7)); // le week-end, on montre les 2 semaines à venir
   const over=Object.keys(P.load).filter(d=>diff(t,d)<14&&P.load[d]>P.cap[d]).sort();
   const late=S.items.filter(i=>!i.completed&&i.due<t);
-  const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=S.settings.name?' '+h(S.settings.name):'';
+  const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=' Chloé';
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
   let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div><span class="sp" style="flex:none">${MS('schedule')}${todayLeft?fmtMin(todayLeft*sm)+' restantes':'Fini pour aujourd\'hui'}</span></div><h1>${hello}${nm} ! 👋</h1>
    <p>${todayLeft?`Encore <strong>${todayLeft} séance${todayLeft>1?'s':''}</strong> prévue${todayLeft>1?'s':''} pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
@@ -824,7 +824,7 @@ function viewToday(){
     }
     html+=`</div>`;
   }
-  html+=`<div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet de groupe':TYPES[t].label}</span>`).join('')}</div><div class="sub" style="font-size:12px">À remettre ce jour-là : la couleur indique la matière, l'icône le type. Touche un jour pour voir le travail prévu.</div></section></div>`;
+  html+=`<div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet de groupe':TYPES[t].label}</span>`).join('')}</div></section></div>`;
   // list for selected day
   const d=ui.homeDay;
   const title=d===t?"À faire aujourd'hui":(d===addDays(t,1)?'À faire demain':'À faire '+longDate(d));
