@@ -130,7 +130,8 @@ h2{font-size:20px;font-weight:700}
 .cell .load{width:70%;height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:auto}
 .cell .load i{display:block;height:100%;background:var(--ok)}
 .cell .load i.full{background:var(--warn)} .cell .load i.over{background:var(--bad)}
-.cell{position:relative}.cell .evm{position:absolute;top:4px;right:4px;width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)}
+.cell{position:relative}.cell .wk{position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.cell .evm{position:absolute;top:4px;right:4px;width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)}
 .cell.blocked{background:repeating-linear-gradient(135deg,var(--card) 0 6px,var(--paper) 6px 9px)}.cell.sel.blocked{background:var(--accent)}
 .evrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.evrow:last-child{border-bottom:0}.evrow .main{flex:1;min-width:0}.evrow b{overflow-wrap:anywhere}
 .evrow .x{border:0;background:var(--paper);width:32px;height:32px;border-radius:10px;font-weight:800;color:var(--mute)}
@@ -461,7 +462,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.29'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.30'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -867,7 +868,7 @@ function viewCalendar(){
       if(l)loadBar=`<span class="load"><i class="${l>c?'over':l===c?'full':''}" style="width:${pct}%"></i></span>`;}
     const evs=eventsOn(d);const blocked=evs.some(e=>e.free===0);
     html+=`<button class="cell ${inM?'':'out'} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
-      ${(k===0||parse(d).getDate()===1)?`<span class="mo">${MC[parse(d).getMonth()]} ${parse(d).getFullYear()}</span>`:''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.slice(0,3).map(calChip).join('')}${dues.length>3?`<span class="more">+${dues.length-3}</span>`:''}</span>${loadBar}</button>`;
+      ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}${(k===0||parse(d).getDate()===1)?`<span class="mo">${MC[parse(d).getMonth()]} ${parse(d).getFullYear()}</span>`:''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.slice(0,3).map(calChip).join('')}${dues.length>3?`<span class="more">+${dues.length-3}</span>`:''}</span>${loadBar}</button>`;
   }
   html+=`</div><div class="legend"></div><div class="legend2"><span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}</div><div class="sub" style="font-size:12px">Pastille = à remettre (couleur = matière, icône = type). Barre = travail prévu ce jour-là.</div></div>`;
   // selected day
