@@ -133,6 +133,7 @@ h2{font-size:20px;font-weight:700}
 .cell .load i.full{background:var(--warn)} .cell .load i.over{background:var(--bad)}
 .cell{position:relative}.cell .wk{position:absolute;top:3px;right:3px;width:10px;height:10px;border-radius:50%;background:#ffb703;box-shadow:0 0 0 1.5px #fff}
 .dcell{position:relative}.dcell .wk{position:absolute;top:3px;right:3px;width:10px;height:10px;border-radius:50%;background:#ffb703;box-shadow:0 0 0 1.5px #fff}
+.cell .ov,.dcell .ov{position:absolute;top:1px;right:3px;color:var(--bad);font-weight:900;font-size:15px;line-height:16px}
 .cell .evm{position:absolute;top:4px;right:4px;width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)}
 .cell.blocked{background:repeating-linear-gradient(135deg,var(--card) 0 6px,var(--paper) 6px 9px)}.cell.sel.blocked{background:var(--accent)}
 .evrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.evrow:last-child{border-bottom:0}.evrow .main{flex:1;min-width:0}.evrow b{overflow-wrap:anywhere}
@@ -471,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.37'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.38'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -631,7 +632,7 @@ function ent(e){const k=e.indexOf(':');const id=k<0?e:e.slice(0,k),sid=k<0?null:
 function stopFor(d){const x=(S.settings.stop||{})[String(parse(d).getDay())];return x&&x.at?x:null}
 function minutesLeftToday(){const x=stopFor(today());if(!x)return null;const [hh,mm]=x.at.split(':').map(Number);const n=new Date();return Math.max(0,hh*60+mm-(n.getHours()*60+n.getMinutes()))}
 function computePlan(){
-  const t=today(),plan={},load={},cap={};
+  const t=today(),plan={},load={},cap={},over=[];
   const active=S.items.filter(i=>!i.completed);
   let end=addDays(t,41);active.forEach(i=>{if(i.due>end)end=i.due});
   for(let d=t;d<=end;d=addDays(d,1)){plan[d]=[];load[d]=0;cap[d]=slotsFor(d)}
@@ -667,14 +668,16 @@ function computePlan(){
           else s+=j*0.4;                          // projet : réparti
           if(s<bs){bs=s;best=d}
         });
+        let ovr=load[best]>=cap[best];if(ovr&&last>=t)best=last;
         plan[best].push(u.key);load[best]++;
+        if(ovr)over.push({id:it.id,key:u.key,title:it.title,due:it.due,d:best});
         if(edge===null||(rev?best<edge:best>edge))edge=best;
       }
       if(edge!==null)bound=edge;
     }
   }
   Object.keys(plan).forEach(d=>plan[d].sort((a,b)=>{const A=ent(a),B=ent(b);if(A.id!==B.id)return 0;return (A.it.steps||[]).indexOf(A.st)-(B.it.steps||[]).indexOf(B.st)}));
-  return{plan,load,cap};
+  return{plan,load,cap,over};
 }
 function itemById(id){return S.items.find(i=>i.id===id)}
 function sessionIndexMap(P){ // numéro de la séance (dans l'étape ou le travail) pour chaque séance planifiée
@@ -813,7 +816,7 @@ function viewToday(){
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
   let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div>${todayLeft?'':`<span class="sp" style="flex:none">${MS('schedule')}Fini pour aujourd'hui</span>`}</div><h1>${hello}${nm} ! 👋</h1>
    <p>${todayLeft?`Encore <strong>${todayLeft} séance${todayLeft>1?'s':''}</strong> prévue${todayLeft>1?'s':''} pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
-   <div class="spills"><span class="streak" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
+   <div class="spills">${P.over.some(o=>o.d>=t)?'<span class="sp" style="background:var(--ctl-soft);color:var(--bad)">! Surcharge de travail</span>':''}<span class="streak" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
    </section>`;
   if(late.length)html+=`<div class="alert" style="border-left-color:var(--bad);background:var(--ctl-soft)"><b>En retard :</b> ${late.map(i=>h(i.title)).join(', ')}. Si c'est déjà remis, marque-le terminé dans « Mes travaux ».</div>`;
   if(over.length)html+=`<div class="alert"><b>Trop de travail ${over.length===1?'le '+h(longDate(over[0])):'certains soirs'}.</b> Avance un peu aujourd'hui si tu peux.</div>`;
@@ -830,7 +833,7 @@ function viewToday(){
       const dues=S.items.filter(i=>i.due===d);
       const chips=dues.length?calChip(dues[0]):'';
       html+=`<button class="dcell ${past?'past':''} ${d===t?'today':''} ${d===ui.homeDay?'sel':''} ${blocked?'blocked':''}" onclick="selHome('${d}')" aria-label="${h(longDate(d))}">
-        ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="wdn">${WD[k%7]}</span><span class="dn">${dd.getDate()}</span>${evs.length?`<span class="evtag">${h(evs[0].label)}</span>`:''}<span class="minis">${chips}</span></button>`;
+        ${(d>=t&&P.over.some(o=>o.d===d))?'<span class="ov" aria-label="Surcharge">!</span>':(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="wdn">${WD[k%7]}</span><span class="dn">${dd.getDate()}</span>${evs.length?`<span class="evtag">${h(evs[0].label)}</span>`:''}<span class="minis">${chips}</span></button>`;
     }
     html+=`</div>`;
   }
@@ -878,9 +881,11 @@ function viewCalendar(){
       if(l)loadBar=`<span class="load"><i class="${l>c?'over':l===c?'full':''}" style="width:${pct}%"></i></span>`;}
     const evs=eventsOn(d);const blocked=evs.some(e=>e.free===0);
     html+=`<button class="cell ${inM?'':'out'} ${[0,6].includes(parse(d).getDay())?'wkend':''} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
-      ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.length?calChip(dues[0]):''}</span>${loadBar}</button>`;
+      ${(d>=t&&P.over.some(o=>o.d===d))?'<span class="ov" aria-label="Surcharge">!</span>':(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.length?calChip(dues[0]):''}</span>${loadBar}</button>`;
   }
   html+=`</div><div class="legend"></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}<span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div></div>`;
+  const overList=[...new Map(P.over.filter(o=>o.d>=t).map(o=>[o.id,o])).values()];
+  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" style="display:flex;gap:10px;align-items:center"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${n} séance${n>1?'s':''} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
   // selected day
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
