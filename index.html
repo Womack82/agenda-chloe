@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.39'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.40'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -941,21 +941,17 @@ function viewSettings(){
   const st=S.settings;const order=[1,2,3,4,5,6,0];
   let html=`<div class="stack"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h1>Réglages</h1><span class="sub" style="font-size:12px">Version ${APP_VERSION}</span></div></div>
   <div class="section"><h2>Ta couleur</h2><div class="swatches">${Object.keys(THEMES).map(k=>`<button class="sw ${st.theme===k?'on':''}" style="--s:${THEMES[k][0]}" onclick="setTheme('${k}')" aria-label="Couleur ${k}"></button>`).join('')}</div></div>
-  <div class="section"><h2>Ton rythme</h2><div class="sub">Un travail prévu pour ${st.sessionMin} min te prend en vrai :</div>
-   <div class="seg c4">${[[1,'pareil'],[1.25,''],[1.5,''],[2,'']].map(([v])=>`<button class="opt ${(st.pace||1)===v?'on':''}" onclick="setPace(${v})">${fmtMin(Math.round(st.sessionMin*v/5)*5)}<small>${v===1?'comme prévu':'×'+String(v).replace('.',',')}</small></button>`).join('')}</div>
-   <div class="sub">L'app prévoit ce temps-là pour chaque séance, alors le plan colle à ton vrai rythme. Prendre plus de temps, c'est correct : l'important c'est que le plan soit réaliste.</div></div>
   <div class="section"><h2>Temps pour les devoirs</h2><div class="card">`;
   order.forEach(w=>{const sp=(st.stop||{})[String(w)];html+=`<div class="wkrow"><span style="font-weight:700">${JOURS[w].replace(/^./,c=>c.toUpperCase())}${sp?`<br><span class="sub" style="font-weight:600">fini à ${h(sp.at.replace(':',' h '))}</span>`:''}</span>
     <span class="stepper"><button onclick="setCap(${w},-15)" aria-label="Moins de temps le ${JOURS[w]}">−</button><b>${st.cap[w]?fmtMin(st.cap[w]):'congé'}</b><button onclick="setCap(${w},15)" aria-label="Plus de temps le ${JOURS[w]}">+</button></span></div>`});
-  html+=`</div></div><div class="section"><h2>Heure limite</h2><div class="sub">Après cette heure-là, plus de devoirs : ce qui n'est pas fait passe aux jours suivants. Le temps ci-dessus = le temps avant cette heure.</div><div class="card">`;
+  html+=`</div></div>  <div class="section"><h2>Ton rythme</h2><div class="sub">Un travail prévu pour ${st.sessionMin} min te prend en vrai :</div>
+   <div class="seg c4">${[[1,'pareil'],[1.25,''],[1.5,''],[2,'']].map(([v])=>`<button class="opt ${(st.pace||1)===v?'on':''}" onclick="setPace(${v})">${fmtMin(Math.round(st.sessionMin*v/5)*5)}<small>${v===1?'comme prévu':'×'+String(v).replace('.',',')}</small></button>`).join('')}</div>
+   <div class="sub">L'app prévoit ce temps-là pour chaque séance, alors le plan colle à ton vrai rythme. Prendre plus de temps, c'est correct : l'important c'est que le plan soit réaliste.</div></div>
+  <div class="section"><h2>Heure limite</h2><div class="sub">Après cette heure-là, plus de devoirs : ce qui n'est pas fait passe aux jours suivants. Le temps ci-dessus = le temps avant cette heure.</div><div class="card">`;
   order.forEach(w=>{const sp=(st.stop||{})[String(w)];html+=`<div class="wkrow"><span style="font-weight:700">${JOURS[w].replace(/^./,c=>c.toUpperCase())}${sp&&sp.why?`<br><span class="sub" style="font-weight:600">${h(sp.why)}</span>`:''}</span>
     <span style="display:flex;gap:6px;align-items:center"><input type="time" value="${sp?sp.at:''}" onchange="setStop(${w},this.value)" aria-label="Heure limite le ${JOURS[w]}" style="width:auto;padding:6px 8px">${sp?`<button class="chip" onclick="setStop(${w},'')" aria-label="Pas d'heure limite le ${JOURS[w]}">✕</button>`:''}</span></div>`});
   const wk=S.events.filter(e=>e.kind==='weekly');
-  html+=`</div></div><div class="section"><div class="section-head"><h2>Activités chaque semaine</h2><button class="chip" onclick="openEvent(null,true)">+ Ajouter</button></div><div class="card">${wk.length?wk.map(evRow).join(''):'<div class="empty">Sport, cours de musique, garde… Ajoute-les ici et l\'app en tiendra compte chaque semaine.</div>'}</div>
-  <div class="sub">Pour un événement ponctuel (sleepover, sortie avec des amis), touche le jour dans le calendrier.</div></div>
-  <div class="section"><h2>Mes matières</h2><div class="chips">${st.subjects.map((s,k)=>`<span class="subj">${h(s)}<button onclick="delSubject(${k})" aria-label="Retirer ${h(s)}">✕</button></span>`).join('')}</div>
-   <form class="addrow" onsubmit="addSubject(event)"><input type="text" id="newSubj" placeholder="Ajouter une matière" value="${h(ui.newSubject)}" oninput="ui.newSubject=this.value"><button class="btn" type="submit">Ajouter</button></form></div>
-  <div class="section"><h2>Comment l'app répartit le travail</h2><div class="card explain">
+  html+=`</div></div><div class="section"><h2>Comment l'app répartit le travail</h2><div class="card explain">
    <div><b>Devoir :</b> placé le plus tôt possible, pour ne pas tout faire la veille.</div>
    <div><b>Contrôle :</b> des révisions courtes dans les jours avant le contrôle, une par soir si possible. Réviser en plusieurs fois aide à mieux retenir.</div>
    <div><b>Projet de groupe :</b> réparti régulièrement jusqu'à la date de remise.</div>
@@ -1000,7 +996,7 @@ function evHtml(){const e=ui.ev;const sugg=['Sleepover','Sortie','Autre'];
   return `<div class="sethead"><h2>Nouvelle activité</h2></div>
   <label class="f" for="eLabel">Quoi ?<input type="text" id="eLabel" value="${h(e.label)}" placeholder="ex. Pratique de soccer" oninput="ui.ev.label=this.value"></label>
   <div class="chips">${sugg.map(x=>`<button class="opt ${e.label===x?'on':''}" style="padding:6px 11px" onclick="setE('label',${h(JSON.stringify(x))})">${x}</button>`).join('')}</div>
-  <div class="seg c3" style="grid-template-columns:1fr 1fr"><button class="opt ${!e.weekly?'on':''}" onclick="setE('weekly',false)">Une fois</button><button class="opt ${e.weekly?'on':''}" onclick="setE('weekly',true)">Chaque semaine</button></div>
+  
   ${e.weekly?`<div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800;color:var(--mute)">Quel jour ?<div class="chips">${[1,2,3,4,5,6,0].map(w=>`<button class="opt ${e.weekday===w?'on':''}" style="padding:7px 11px" onclick="setE('weekday',${w})">${JOURS[w]}</button>`).join('')}</div></div>`
     :`<label class="f" for="eDate">Quel jour ?<input type="date" id="eDate" value="${e.date}" onchange="setE('date',this.value)"></label>`}
   <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800;color:var(--mute)">Temps qui reste pour les devoirs ce jour-là
