@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.40'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.41'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -949,7 +949,7 @@ function viewSettings(){
    <div class="sub">L'app prévoit ce temps-là pour chaque séance, alors le plan colle à ton vrai rythme. Prendre plus de temps, c'est correct : l'important c'est que le plan soit réaliste.</div></div>
   <div class="section"><h2>Heure limite</h2><div class="sub">Après cette heure-là, plus de devoirs : ce qui n'est pas fait passe aux jours suivants. Le temps ci-dessus = le temps avant cette heure.</div><div class="card">`;
   order.forEach(w=>{const sp=(st.stop||{})[String(w)];html+=`<div class="wkrow"><span style="font-weight:700">${JOURS[w].replace(/^./,c=>c.toUpperCase())}${sp&&sp.why?`<br><span class="sub" style="font-weight:600">${h(sp.why)}</span>`:''}</span>
-    <span style="display:flex;gap:6px;align-items:center"><input type="time" value="${sp?sp.at:''}" onchange="setStop(${w},this.value)" aria-label="Heure limite le ${JOURS[w]}" style="width:auto;padding:6px 8px">${sp?`<button class="chip" onclick="setStop(${w},'')" aria-label="Pas d'heure limite le ${JOURS[w]}">✕</button>`:''}</span></div>`});
+    <span style="display:flex;gap:6px;align-items:center"><input type="time" value="${sp?sp.at:''}" onchange="setStopQuiet(${w},this.value)" aria-label="Heure limite le ${JOURS[w]}" style="width:auto;padding:6px 8px">${sp?`<button class="chip" onclick="setStop(${w},'')" aria-label="Pas d'heure limite le ${JOURS[w]}">✕</button>`:''}</span></div>`});
   const wk=S.events.filter(e=>e.kind==='weekly');
   html+=`</div></div><div class="section"><h2>Comment l'app répartit le travail</h2><div class="card explain">
    <div><b>Devoir :</b> placé le plus tôt possible, pour ne pas tout faire la veille.</div>
@@ -1179,6 +1179,7 @@ function setOverride(d,v){if(v==null)delete S.dayOverride[d];else S.dayOverride[
   const t=today();Object.keys(S.dayOverride).forEach(k=>{if(k<addDays(t,-60))delete S.dayOverride[k]});commit();render()}
 function setTheme(k){S.settings.theme=k;applyTheme();commit();render()}
 function setStop(w,v){S.settings.stop=S.settings.stop||{};const k=String(w);if(!v)delete S.settings.stop[k];else S.settings.stop[k]={at:v,why:(S.settings.stop[k]||{}).why||(w===0?'Routine du dimanche soir':'')};commit();render()}
+function setStopQuiet(w,v){S.settings.stop=S.settings.stop||{};const k=String(w);if(!v)delete S.settings.stop[k];else S.settings.stop[k]={at:v,why:(S.settings.stop[k]||{}).why||(w===0?'Routine du dimanche soir':'')};commit()}
 function setPace(v){S.settings.pace=v;commit();render()}
 function setSession(v){S.settings.sessionMin=v;commit();render()}
 function setCap(w,n){S.settings.cap[w]=Math.max(0,Math.min(240,S.settings.cap[w]+n));commit();render()}
