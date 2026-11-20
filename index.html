@@ -131,8 +131,8 @@ h2{font-size:20px;font-weight:700}
 .cell .load{width:70%;height:4px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:auto}
 .cell .load i{display:block;height:100%;background:var(--ok)}
 .cell .load i.full{background:var(--warn)} .cell .load i.over{background:var(--bad)}
-.cell{position:relative}.cell .wk{position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;background:#ffb703;box-shadow:0 0 0 1.5px #fff}
-.dcell{position:relative}.dcell .wk{position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;background:#ffb703;box-shadow:0 0 0 1.5px #fff}
+.cell{position:relative}.cell .wk{position:absolute;top:3px;right:3px;width:10px;height:10px;border-radius:50%;background:#ffb703;box-shadow:0 0 0 1.5px #fff}
+.dcell{position:relative}.dcell .wk{position:absolute;top:3px;right:3px;width:10px;height:10px;border-radius:50%;background:#ffb703;box-shadow:0 0 0 1.5px #fff}
 .cell .evm{position:absolute;top:4px;right:4px;width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)}
 .cell.blocked{background:repeating-linear-gradient(135deg,var(--card) 0 6px,var(--paper) 6px 9px)}.cell.sel.blocked{background:var(--accent)}
 .evrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.evrow:last-child{border-bottom:0}.evrow .main{flex:1;min-width:0}.evrow b{overflow-wrap:anywhere}
@@ -266,6 +266,13 @@ nav .add svg{width:28px;height:28px}
 .sheet{background:var(--card);width:100%;max-width:560px;flex:1 1 auto;min-height:0;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;animation:up .22s ease-out}
 @keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){.sheet{animation:none}}
+button{transition:transform .12s ease,background-color .2s ease,box-shadow .2s ease,opacity .2s ease,color .2s ease}
+button:active{transform:scale(.97)}
+.scrim{animation:fadein .2s ease-out}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.scrim.out{opacity:0;transition:opacity .18s ease}
+.scrim.out .sheetbox{transform:translateY(30px);opacity:0;transition:transform .18s ease,opacity .18s ease}
+.sheetbox{transition:transform .2s ease,opacity .2s ease}
 .sheet .grab{width:42px;height:5px;border-radius:5px;background:var(--line);margin:-6px auto 0}
 .sethead{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .wkrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -335,8 +342,8 @@ h2{font-size:17px;font-weight:700;line-height:24px}
 .legend2 span{display:inline-flex;align-items:center;gap:5px}
 .legend2 img{width:16px;height:16px;border-radius:5px}
 /* task cards */
-.tcard{position:relative;background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:12px 12px 12px 18px;display:flex;align-items:flex-start;gap:12px;overflow:hidden}
-.tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:0 4px 4px 0;background:var(--sc,var(--c))}
+.tcard{position:relative;background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:12px 12px 12px 22px;display:flex;align-items:center;gap:12px;overflow:hidden}
+.tcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;border-radius:0 6px 6px 0;background:var(--sc,var(--c))}
 .tcard .tpill,.tcard .stepbadge{color:var(--ink)}
 .tchk{flex:none;width:38px;height:38px;border-radius:50%;border:2px solid var(--line);background:var(--chip2);display:grid;place-items:center;color:transparent;transition:transform .15s,background .15s}
 .tchk:active{transform:scale(.85)}
@@ -464,7 +471,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.35'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.36'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -728,14 +735,14 @@ function statusHtml(){
 }
 function renderStatus(){document.querySelectorAll('.status').forEach(e=>e.innerHTML=statusHtml())}
 function typeCls(t){return 't-'+t}
-function go(v){if(v==='today'){ui.selDay=today();ui.calStart=null;ui.homeDay=null}ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
+function go(v){if(v==='today'){ui.selDay=today();ui.calMonth=today().slice(0,7);ui.homeDay=null}ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
 
 function taskRow(it,opts){
   const st=opts.step||null;const sarg=st?`,'${st.id}'`:'';const sm=blockMin();
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
   const sess=opts.session?fmtMin(S.settings.sessionMin)+' à faire':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
-  const chk=opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
+  const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
     <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
       <h4>${h(it.title)}</h4>
@@ -780,7 +787,7 @@ function subjKey(s){const x=(s||'').toLowerCase().normalize('NFD').replace(/[̀-
 const SUBJ_EMOJI={'Éduc. physique':'🏃','Espagnol':'💬','Musique':'🎵','Géographie':'🗺️'};
 function subjIcon(s){const k=subjKey(s);if(k)return `<img src="img/${k}.png" alt="">`;return `<span class="sfb">${SUBJ_EMOJI[s]||h((s||'•').charAt(0).toUpperCase())}</span>`}
 const SUBJ_COLOR={maths:'#E28C48',anglais:'#EBA8A8',sciences:'#B5CA52',histoire:'#5AA53B',francais:'#EFC950',ccq:'#5BB8AE',arts:'#B25FC4'};
-function calChip(i){const k=subjKey(i.subject);const bg=k?SUBJ_COLOR[k]:'var(--outline)';
+function calChip(i){const bg='var(--outline)';
   const inner=`<img src="img/w-${i.type}.png" alt="">`;
   return `<span class="cchip ${i.completed?'fin':''}" style="background:${bg}" title="${h(TYPES[i.type].label)} de ${h(i.subject||'?')} à remettre : ${h(i.title)}">${inner}</span>`}
 function typeIcon(t){return `<img src="img/${t}.png" alt="">`}
@@ -820,8 +827,7 @@ function viewToday(){
       const d=addDays(monday,k),past=d<t,dd=parse(d);
       const evs=eventsOn(d),blocked=evs.some(e=>e.free===0);
       const dues=S.items.filter(i=>i.due===d);
-      const list=dues.map(calChip);
-      const max=3;const chips=list.slice(0,max).join('')+(list.length>max?`<span class="more">+${list.length-max}</span>`:'');
+      const chips=dues.length?calChip(dues[0]):'';
       html+=`<button class="dcell ${past?'past':''} ${d===t?'today':''} ${d===ui.homeDay?'sel':''} ${blocked?'blocked':''}" onclick="selHome('${d}')" aria-label="${h(longDate(d))}">
         ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="wdn">${WD[k%7]}</span><span class="dn">${dd.getDate()}</span>${evs.length?`<span class="evtag">${h(evs[0].label)}</span>`:''}<span class="minis">${chips}</span></button>`;
     }
@@ -850,29 +856,30 @@ function viewToday(){
   if(d>t&&planned.length)html+=`<div class="sub">Tu peux cocher une séance en avance si tu la fais aujourd'hui.</div>`;
   html+=`</div>`;
   // upcoming deadlines
-  const next=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1).slice(0,6);
-  if(next.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><button class="chip" onclick="go('list')" style="background:none;color:var(--accent);font-size:12px;font-weight:800">Voir tous mes travaux</button></div>`;next.forEach(i=>html+=listRow(i));html+=`</div>`}
+  const tomorrow=addDays(t,1),tplan=P.plan[tomorrow]||[];
+  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;tplan.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:sessionIndexMap(P)[tomorrow][k],step:x.st,noChk:true})});html+=`</div>`}
   return html;
 }
 
 function viewCalendar(){
   const t=today(),P=computePlan(),sm=blockMin();
-  const start=calStartDay();
-  let html=`<div class="stack"><div class="calhead"><button class="iconbtn" onclick="moveMonth(-1)" aria-label="Quatre semaines précédentes">‹</button>
-    <h1 style="font-size:18px">${shortDate(start)} – ${shortDate(addDays(start,27))}</h1>
-    <button class="iconbtn" onclick="moveMonth(1)" aria-label="Quatre semaines suivantes">›</button></div>
+  const [my,mm]=ui.calMonth.split('-').map(Number);const first=new Date(my,mm-1,1);const start=ds(new Date(my,mm-1,1-((first.getDay()+6)%7)));
+  let html=`<div class="stack"><div class="calhead"><button class="iconbtn" onclick="moveMonth(-1)" aria-label="Mois précédent">‹</button>
+    <h1 style="font-size:22px">${MOIS[mm-1].replace(/^./,c=>c.toUpperCase())} ${my}</h1>
+    <button class="iconbtn" onclick="moveMonth(1)" aria-label="Mois suivant">›</button></div>
     <div class="grid">${['lun','mar','mer','jeu','ven','sam','dim'].map(w=>`<div class="wd">${w}</div>`).join('')}`;
-  for(let k=0;k<28;k++){
-    const d=addDays(start,k);const inM=true;
+  for(let k=0;k<42;k++){
+    const d=addDays(start,k);const inM=parse(d).getMonth()===mm-1;
+    if(k>=35&&!inM)break;
     const dues=S.items.filter(i=>i.due===d);
     let loadBar='';
     if(d>=t&&P.load[d]!=null){const c=P.cap[d],l=P.load[d];const pct=c?Math.min(100,l/c*100):(l?100:0);
       if(l)loadBar=`<span class="load"><i class="${l>c?'over':l===c?'full':''}" style="width:${pct}%"></i></span>`;}
     const evs=eventsOn(d);const blocked=evs.some(e=>e.free===0);
     html+=`<button class="cell ${inM?'':'out'} ${[0,6].includes(parse(d).getDay())?'wkend':''} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
-      ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}${(k===0||parse(d).getDate()===1)?`<span class="mo">${MC[parse(d).getMonth()]} ${parse(d).getFullYear()}</span>`:''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.slice(0,3).map(calChip).join('')}${dues.length>3?`<span class="more">+${dues.length-3}</span>`:''}</span>${loadBar}</button>`;
+      ${(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.length?calChip(dues[0]):''}</span>${loadBar}</button>`;
   }
-  html+=`</div><div class="legend"></div><div class="legend2"><span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}</div><div class="sub" style="font-size:12px">Pastille = à remettre (couleur = matière, icône = type). Barre = travail prévu ce jour-là.</div></div>`;
+  html+=`</div><div class="legend"></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}<span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div></div>`;
   // selected day
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
@@ -899,10 +906,6 @@ function viewCalendar(){
     P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st})});
   });else html+=`<div class="card empty">Aucun travail planifié.</div>`;
   html+=`</div>`;
-  const upcoming=S.items.filter(i=>!i.completed&&i.due>=t&&i.due!==d).sort((a,b)=>a.due<b.due?-1:1);
-  html+=`<div class="section"><h2>Devoirs à rendre</h2>`;
-  if(upcoming.length)html+=upcoming.map(i=>listRow(i)).join('');else html+=`<div class="card empty">Aucun autre travail à venir.</div>`;
-  html+=`</div>`;
   return html;
 }
 
@@ -919,18 +922,17 @@ function listRow(i){
 function viewList(){
   const act=S.items.filter(i=>!i.completed).sort((a,b)=>a.due<b.due?-1:1);
   const done=S.items.filter(i=>i.completed).sort((a,b)=>a.due>b.due?-1:1).slice(0,15);
-  let html=`<div class="stack"><div class="sub">Touche un travail pour le modifier, le marquer terminé ou le supprimer.</div></div>
-  <div class="section"><h2>À faire (${act.length})</h2>`;
+  let html=`<div class="section"><h2>À faire (${act.length})</h2>`;
   if(!act.length)html+=`<div class="card empty">Aucun travail en cours. Ajoute-en un avec le bouton +.</div>`;
   act.forEach(i=>html+=listRow(i));
   html+=`</div>`;
-  if(done.length){html+=`<div class="section"><h2>Terminés</h2>`;done.forEach(i=>html+=listRow(i));html+=`</div>`}
+  if(done.length){html+=`<details class="section" style="margin-top:22px"><summary style="font-family:var(--display);font-weight:700;font-size:20px;cursor:pointer;list-style:none">Terminés (${done.length})</summary><div class="stack" style="margin-top:10px">`;done.forEach(i=>html+=listRow(i));html+=`</div></details>`}
   return html;
 }
 
 function viewSettings(){
   const st=S.settings;const order=[1,2,3,4,5,6,0];
-  let html=`<div class="stack"><div class="status">${statusHtml()}</div><div class="sub" style="font-size:12px">Version ${APP_VERSION}</div></div>
+  let html=`<div class="stack"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h1>Réglages</h1><span class="sub" style="font-size:12px">Version ${APP_VERSION}</span></div></div>
   <div class="section"><h2>Ta couleur</h2><div class="swatches">${Object.keys(THEMES).map(k=>`<button class="sw ${st.theme===k?'on':''}" style="--s:${THEMES[k][0]}" onclick="setTheme('${k}')" aria-label="Couleur ${k}"></button>`).join('')}</div></div>
   <div class="section"><h2>Ton rythme</h2><div class="sub">Un travail prévu pour ${st.sessionMin} min te prend en vrai :</div>
    <div class="seg c4">${[[1,'pareil'],[1.25,''],[1.5,''],[2,'']].map(([v])=>`<button class="opt ${(st.pace||1)===v?'on':''}" onclick="setPace(${v})">${fmtMin(Math.round(st.sessionMin*v/5)*5)}<small>${v===1?'comme prévu':'×'+String(v).replace('.',',')}</small></button>`).join('')}</div>
@@ -955,7 +957,6 @@ function viewSettings(){
    <div><b>Avec le temps,</b> l'app compare tes estimations avec le temps réel par matière et te le dit quand tu ajoutes un travail.</div>
   </div></div>
   <div class="section"><h2>Sauvegarde</h2><div class="card stack">
-   <div class="status">${statusHtml()}</div>
    ${fbUser?`<div class="section-head"><span class="sub">Connectée : ${h(fbUser.email||'')}</span><button class="chip" onclick="signOut()">Se déconnecter</button></div>`:''}
    <div class="sub">Chaque changement est enregistré automatiquement. Tes travaux sont conservés quand l'app est mise à jour et se retrouvent sur tous tes appareils.</div>
    <div class="sub">Pour plus de sécurité, tu peux aussi garder une copie sur ton appareil et la restaurer au besoin.</div>
@@ -1051,7 +1052,8 @@ function renderSheet(){
   root.innerHTML=`<div class="scrim" onclick="if(event.target===this&&!(ui.pause&&ui.pause.running))${'closeSheet()'}"><div class="sheetbox"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${inner}</div>${closeBtn}</div></div>`;
   const newSheet=root.querySelector('.sheet');if(newSheet)newSheet.scrollTop=keepScroll;
 }
-function closeSheet(){if(ui.pause){clearInterval(pauseTick);ui.pause=null}ui.sheet=null;ui.form=null;ui.ev=null;render()}
+function closeSheet(){const sc=document.querySelector('.scrim');if(sc&&!sc.classList.contains('out')){sc.classList.add('out');setTimeout(closeSheetNow,180);return}closeSheetNow()}
+function closeSheetNow(){if(ui.pause){clearInterval(pauseTick);ui.pause=null}ui.sheet=null;ui.form=null;ui.ev=null;render()}
 
 function openAdd(){
   const d=addDays(today(),2);
@@ -1149,7 +1151,7 @@ function doSession(id,sid){const i=itemById(id);const lv=levelInfo().n;
   i.log.push(today());i.slog.push(st?st.id:null);
   const stepDone=st&&st.done>=st.sessions;
   if(i.done>=i.sessions){completeItem(i)}
-  commit();ui.sheet={kind:'after',id,step:st?st.id:null,stepDone,cheer:cheer()};render();confetti(i.completed||stepDone)}
+  commit();ui.sheet=i.completed?null:{kind:'after',id,step:st?st.id:null,stepDone,cheer:cheer()};render();confetti(i.completed||stepDone)}
 function undoSession(id){const i=itemById(id);const k=(i.log||[]).lastIndexOf(today());if(k<0)return;
   const sid=(i.slog||[])[k];i.log.splice(k,1);if(i.slog)i.slog.splice(k,1);
   if(hasSteps(i)){const st=i.steps.find(z=>z.id===sid)||i.steps.slice().reverse().find(z=>z.done>0);if(st)st.done=Math.max(0,st.done-1);syncSteps(i)}else i.done=Math.max(0,i.done-1);
@@ -1167,9 +1169,8 @@ function afterHtml(){const i=itemById(ui.sheet.id);if(!i)return'';const rem=i.se
 function needMore(id,sid){const i=itemById(id);if(i.completed)uncomplete(i);if(hasSteps(i)){const st=i.steps.find(z=>z.id===sid)||i.steps[i.steps.length-1];st.sessions++;syncSteps(i)}else i.sessions++;commit();closeSheet()}
 
 /* calendar + settings actions */
-function calStartDay(){if(!ui.calStart){const t=today();ui.calStart=addDays(t,-((parse(t).getDay()+6)%7))}return ui.calStart}
-function moveMonth(n){ui.calStart=addDays(calStartDay(),28*n);render()}
-function selDay(d){ui.selDay=d;render()}
+function moveMonth(n){const[y,m]=ui.calMonth.split('-').map(Number);const d=new Date(y,m-1+n,1);ui.calMonth=d.getFullYear()+'-'+pad(d.getMonth()+1);render()}
+function selDay(d){ui.selDay=d;if(d.slice(0,7)!==ui.calMonth)ui.calMonth=d.slice(0,7);render()}
 function setOverride(d,v){if(v==null)delete S.dayOverride[d];else S.dayOverride[d]=v;
   const t=today();Object.keys(S.dayOverride).forEach(k=>{if(k<addDays(t,-60))delete S.dayOverride[k]});commit();render()}
 function setTheme(k){S.settings.theme=k;applyTheme();commit();render()}
