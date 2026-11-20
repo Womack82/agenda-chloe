@@ -471,7 +471,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.36'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.37'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -682,6 +682,7 @@ function sessionIndexMap(P){ // numéro de la séance (dans l'étape ou le trava
   Object.keys(P.plan).sort().forEach(d=>{idx[d]=P.plan[d].map(e=>{const x=ent(e);count[e]=(count[e]||0)+1;return (x.st?x.st.done:x.it.done)+count[e]})});
   return idx;
 }
+function travailTropLong(f){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const it=f.id?itemById(f.id):null;const sess=f.steps.length?f.steps.reduce((a,x)=>a+x.sessions,0):f.sessions;const done=f.steps.length?f.steps.reduce((a,x)=>a+x.done,0):(it?it.done:0);return Math.max(0,sess-done)>free}
 function freeSlotsBefore(due,P){let f=0;const t=today();let last=addDays(due,-1);if(last<t)last=t;
   for(let d=t;d<=last;d=addDays(d,1)){f+=Math.max(0,(P.cap[d]??slotsFor(d))-(P.load[d]||0))}return f}
 
@@ -1120,6 +1121,7 @@ function bump(n){syncInputs();ui.form.sessions=Math.max(1,Math.min(20,ui.form.se
 function saveForm(){
   syncInputs();const f=ui.form;
   if(!f.subject){f.err='Choisis une matière avant d\'enregistrer.';renderSheet();return}
+  if(f.due&&travailTropLong(f))alert("Ce travail ne rentre pas dans le temps qu'il te reste avant la date de remise. Pense à ajouter du temps le vendredi dans Réglages (temps pour les devoirs).");
   if(!f.id&&!(f.title||'').trim())f.title=TYPES[f.type].label+(f.subject?' · '+f.subject:'');
   if(!f.title.trim()){const e=document.getElementById('fTitle');e.placeholder='Écris un nom pour ce travail';e.style.borderColor='var(--bad)';e.focus();return}
   if(!f.due)return;
