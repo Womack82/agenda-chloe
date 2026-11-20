@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.38'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.39'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -884,6 +884,7 @@ function viewCalendar(){
       ${(d>=t&&P.over.some(o=>o.d===d))?'<span class="ov" aria-label="Surcharge">!</span>':(d>=t&&(P.plan[d]||[]).length)?'<span class="wk" aria-label="Travail à faire"></span>':''}<span class="n">${parse(d).getDate()}</span>${evs.length?'<span class="evm" aria-hidden="true"></span>':''}<span class="minis">${dues.length?calChip(dues[0]):''}</span>${loadBar}</button>`;
   }
   html+=`</div><div class="legend"></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}<span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div></div>`;
+  html+=`<div style="display:flex;justify-content:center;margin-top:12px"><button class="btn ghost" onclick="openEvent(ui.selDay)">${MS('add')}Ajouter une activité</button></div>`;
   const overList=[...new Map(P.over.filter(o=>o.d>=t).map(o=>[o.id,o])).values()];
   if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" style="display:flex;gap:10px;align-items:center"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${n} séance${n>1?'s':''} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
   // selected day
@@ -995,7 +996,7 @@ function activitiesCard(d){const ev=eventsOn(d);
   return `<div class="card stack"><div class="section-head"><b>Activités ce jour-là</b><button class="chip" onclick="openEvent('${d}')">+ Ajouter</button></div>
    ${ev.length?'<div>'+ev.map(evRow).join('')+'</div>':`<div class="sub">Aucune. Temps pour les devoirs : ${fmtMin(S.settings.cap[parse(d).getDay()])}. Sport, sleepover, amis ? Ajoute-le et le travail sera déplacé.</div>`}</div>`}
 function openEvent(d,weekly){const date=d||today();ui.ev={label:'',date,weekly:!!weekly,weekday:parse(date).getDay(),fh:0,fm:0};ui.sheet={kind:'event'};renderSheet()}
-function evHtml(){const e=ui.ev;const sugg=['Sport','Sleepover','Amis','Fête','Rendez-vous','Musique','Travail'];
+function evHtml(){const e=ui.ev;const sugg=['Sleepover','Sortie','Autre'];
   return `<div class="sethead"><h2>Nouvelle activité</h2></div>
   <label class="f" for="eLabel">Quoi ?<input type="text" id="eLabel" value="${h(e.label)}" placeholder="ex. Pratique de soccer" oninput="ui.ev.label=this.value"></label>
   <div class="chips">${sugg.map(x=>`<button class="opt ${e.label===x?'on':''}" style="padding:6px 11px" onclick="setE('label',${h(JSON.stringify(x))})">${x}</button>`).join('')}</div>
