@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.50'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.51'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -650,7 +650,7 @@ function computePlan(){
     let bound=rev?last:t; // les étapes restent dans l'ordre
     for(const u of units){
       if(!u.rem)continue;
-      let cand=all.filter(d=>rev?d<=bound:d>=bound);if(!cand.length)cand=[bound];
+      let cand=all.filter(d=>rev?d<=bound:d>=bound);if(!cand.length)cand=[bound];if(rev&&last>t&&cand.some(d=>d!==last))cand=cand.filter(d=>d!==last);
       if(ml===0&&cand.length>1)cand=cand.filter(d=>d!==t); // heure limite passée : plus rien ce soir
       const n=all.length;let edge=null;
       for(let k=0;k<u.rem;k++){
