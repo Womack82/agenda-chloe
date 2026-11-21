@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.42'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.43'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -791,7 +791,7 @@ function subjKey(s){const x=(s||'').toLowerCase().normalize('NFD').replace(/[̀-
 const SUBJ_EMOJI={'Éduc. physique':'🏃','Espagnol':'💬','Musique':'🎵','Géographie':'🗺️'};
 function subjIcon(s){const k=subjKey(s);if(k)return `<img src="img/${k}.png" alt="">`;return `<span class="sfb">${SUBJ_EMOJI[s]||h((s||'•').charAt(0).toUpperCase())}</span>`}
 const SUBJ_COLOR={maths:'#E28C48',anglais:'#EBA8A8',sciences:'#B5CA52',histoire:'#5AA53B',francais:'#EFC950',ccq:'#5BB8AE',arts:'#B25FC4'};
-function calChip(i){const bg='var(--outline)';
+function calChip(i){const k=subjKey(i.subject);const bg=k?SUBJ_COLOR[k]:'var(--outline)';
   const inner=`<img src="img/w-${i.type}.png" alt="">`;
   return `<span class="cchip ${i.completed?'fin':''}" style="background:${bg}" title="${h(TYPES[i.type].label)} de ${h(i.subject||'?')} à remettre : ${h(i.title)}">${inner}</span>`}
 function typeIcon(t){return `<img src="img/${t}.png" alt="">`}
