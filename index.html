@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.47'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.48'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1069,7 +1069,7 @@ function formHtml(){
   const f=ui.form,T=TYPES[f.type],sm=blockMin();
   const editing=!!f.id;const it=editing?itemById(f.id):null;
   const tsub={devoir:'Exercices, lecture…',controle:'Révisions avant',projet:'Plusieurs étapes'};
-  const t0=today(),qd=[[addDays(t0,1),'Demain']];{let x=addDays(t0,1);while(parse(x).getDay()!==5)x=addDays(x,1);if(x!==qd[0][0])qd.push([x,'Ce vendredi']);let y=addDays(t0,1);while(parse(y).getDay()!==1)y=addDays(y,1);qd.push([y,'Lundi proch.'])}
+  const t0=today(),qd=[[addDays(t0,1),'Demain']];{let x=addDays(t0,1);while(parse(x).getDay()!==5)x=addDays(x,1);if(x!==qd[0][0])qd.push([x,'Ce vendredi']);let y=addDays(t0,1);while(parse(y).getDay()!==1)y=addDays(y,1);qd.push([y,'Lundi proch.'])} qd.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
   let html=`<div class="sethead"><div><span class="eyebrow" style="color:var(--accent)">${editing?'Modifier':'Nouveau travail'}</span><h2 style="margin-top:2px">${editing?'Modifier ce travail':'Ajouter un devoir ou contrôle'}</h2></div></div>
   <div class="fgroup"><span class="flabel">Type de travail</span><div class="typecards">${Object.keys(TYPES).map(k=>`<button class="tcd ${typeCls(k)} ${f.type===k?'on':''}" onclick="setF('type','${k}')">${typeIcon(k)}<b>${k==='projet'?'Projet':TYPES[k].label}</b><small>${tsub[k]}</small><span class="ck">${MS('check')}</span></button>`).join('')}</div></div>
   <div class="fgroup">${f.err?`<div class="hint warn">${h(f.err)}</div>`:''}<span class="flabel">Matière<small>${S.settings.subjects.length} matières</small></span><div class="subjscroll">${S.settings.subjects.map(s=>`<button class="schip ${f.subject===s?'on':''}" onclick="setF('subject',${h(JSON.stringify(s))})">${subjIcon(s)}${h(shortSubj(s))}</button>`).join('')}</div></div>
