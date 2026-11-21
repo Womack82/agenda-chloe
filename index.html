@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.44'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.45'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -781,7 +781,7 @@ const SVGI={
  close:'<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
  edit:'<path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="M13.3 6.8l4 4"/>',
  save:'<path d="M5 4h11.2L20 7.8V20H4V5a1 1 0 0 1 1-1z"/><path d="M8 4v4.5h7V4M8 20v-5.5h8V20"/>',
- speed:'<path d="M4.2 16.5a8 8 0 1 1 15.6 0"/><path d="M12 16l3.6-4.6"/>'
+ speed:'<path d="M5.99 18.01A8.5 8.5 0 1 1 18.01 18.01"/><path d="M12 13l3.2-3.6"/>'
 };
 for(const k in SVGI)SVGI[k]=SVGI[k].replace('CAL','__CAL__');
 const MS=(n,c='')=>`<svg class="ms ${c}" viewBox="0 0 24 24" aria-hidden="true">${(SVGI[n]||'').replace('__CAL__','<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>')}</svg>`;
