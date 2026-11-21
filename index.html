@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.1'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.2'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -746,7 +746,8 @@ function taskRow(it,opts){
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
   const sess=opts.session?fmtMin(S.settings.sessionMin)+' à faire':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
-  const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
+  const askDay=!opts.done&&opts.day&&opts.day!==today();
+  const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:askDay?`askDoneDay('${it.id}','${st?st.id:''}','${opts.day}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
     <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
       <h4>${h(it.title)}</h4>
@@ -861,7 +862,7 @@ function viewToday(){
   html+=`</div>`;
   // upcoming deadlines
   const tomorrow=addDays(t,1),tplan=P.plan[tomorrow]||[];
-  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;tplan.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:sessionIndexMap(P)[tomorrow][k],step:x.st})});html+=`</div>`}
+  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;tplan.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:sessionIndexMap(P)[tomorrow][k],step:x.st,day:tomorrow})});html+=`</div>`}
   return html;
 }
 
@@ -895,7 +896,7 @@ function viewCalendar(){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
     html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*S.settings.sessionMin):''}</div>`;
     if(!ids.length)html+=`<div class="card empty">Rien de prévu ce jour-là.</div>`;
-    ids.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:idx[d][k],step:x.st})});
+    ids.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:idx[d][k],step:x.st,day:d})});
   }else{
     const doneItems=S.items.filter(i=>(i.log||[]).includes(d));
     if(doneItems.length){html+=`<div class="sub" style="font-weight:800">Travail fait</div>`;doneItems.forEach(i=>html+=`<div class="row ${typeCls(i.type)} done"><div class="main"><span class="title">${h(i.title)}</span><span class="meta">${h(i.subject)}</span></div></div>`)}
@@ -907,7 +908,7 @@ function viewCalendar(){
   html+=`<div class="section"><h2>Travail planifié</h2>`;
   if(laterDays.length)laterDays.forEach(x=>{
     html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*S.settings.sessionMin)}</div>`;
-    P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st})});
+    P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st,day:x})});
   });else html+=`<div class="card empty">Aucun travail planifié.</div>`;
   html+=`</div>`;
   return html;
@@ -1044,7 +1045,8 @@ function renderSheet(){
   const root=document.getElementById('sheetRoot');
   if(!ui.sheet){root.innerHTML='';return}
   let inner='';
-  if(ui.sheet.kind==='form')inner=formHtml();
+  if(ui.sheet.kind==='doneday')inner=doneDayHtml();
+  else if(ui.sheet.kind==='form')inner=formHtml();
   else if(ui.sheet.kind==='after')inner=afterHtml();
   else if(ui.sheet.kind==='event')inner=evHtml();
   else if(ui.sheet.kind==='pause')inner=pauseHtml();
@@ -1149,13 +1151,16 @@ function finishItem(id){const i=itemById(id);completeItem(i);if(hasSteps(i))i.st
 function reopen(id){const i=itemById(id);uncomplete(i);if(i.done>=i.sessions){if(hasSteps(i)){i.steps[i.steps.length-1].sessions++;syncSteps(i)}else i.sessions=i.done+1}commit();closeSheet()}
 
 /* session done */
-function doSession(id,sid){const i=itemById(id);const lv=levelInfo().n;
+function doSession(id,sid,doneDate){const i=itemById(id);const lv=levelInfo().n;
   i.log=i.log||[];i.slog=i.slog||[];while(i.slog.length<i.log.length)i.slog.push(null);
   let st=null;if(hasSteps(i)){st=i.steps.find(z=>z.id===sid)||i.steps.find(z=>z.done<z.sessions);if(st)st.done++;syncSteps(i)}else i.done++;
-  i.log.push(today());i.slog.push(st?st.id:null);
+  i.log.push(doneDate||today());i.slog.push(st?st.id:null);
   const stepDone=st&&st.done>=st.sessions;
   if(i.done>=i.sessions){completeItem(i)}
   commit();ui.sheet=i.completed?null:{kind:'after',id,step:st?st.id:null,stepDone,cheer:cheer()};render();confetti(i.completed||stepDone)}
+function askDoneDay(id,sid,day){ui.doneDay={id,sid:sid||null,day,date:today()};ui.sheet={kind:'doneday'};renderSheet()}
+function doneDayHtml(){const d=ui.doneDay;const it=itemById(d.id);return `<h2>À quelle date as-tu fait ce travail ?</h2>${it?`<div class="sub">« ${h(it.title)} »</div>`:''}<label class="f" for="doneDate">Date<input type="date" id="doneDate" value="${d.date}" onchange="ui.doneDay.date=this.value"></label><div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmDoneDay()">Confirmer</button></div>`}
+function confirmDoneDay(){const d=ui.doneDay;const dt=(document.getElementById('doneDate')||{}).value||d.date;ui.sheet=null;doSession(d.id,d.sid,dt)}
 function undoSession(id){const i=itemById(id);const k=(i.log||[]).lastIndexOf(today());if(k<0)return;
   const sid=(i.slog||[])[k];i.log.splice(k,1);if(i.slog)i.slog.splice(k,1);
   if(hasSteps(i)){const st=i.steps.find(z=>z.id===sid)||i.steps.slice().reverse().find(z=>z.done>0);if(st)st.done=Math.max(0,st.done-1);syncSteps(i)}else i.done=Math.max(0,i.done-1);
