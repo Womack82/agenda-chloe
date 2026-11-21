@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.53'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.54'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1078,7 +1078,7 @@ function formHtml(){
   ${f.steps.length?'':`<div class="fgroup"><span class="flabel">${f.type==='controle'?'Combien de matière à réviser ?':'Taille estimée de l\'effort'}<small style="color:var(--ok)">${MS('speed')}Adapté à ton rythme</small></span>
    <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*S.settings.sessionMin)}</small></button>`).join('')}
    <button class="opt ${(f.custom||f.noRev)?'on':''}" onclick="${f.type==='controle'?'setNoRev()':'setSize(-1)'}"><svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="4" width="14" height="22" rx="2" class="pg" stroke-dasharray="3 2.5"/><path d="M16 11v8M12 15h8"/></svg>${f.type==='controle'?'Pas de révision<small>rien à faire</small>':'Autre<small>à choisir</small>'}</button></div></div>`}`;
-  if(f.custom&&!f.steps.length)html+=`<div class="stepper"><button onclick="bump(-1)" aria-label="Une séance de moins">−</button><b>${f.sessions} séance${f.sessions>1?'s':''}</b><button onclick="bump(1)" aria-label="Une séance de plus">+</button><span class="sub">≈ ${fmtMin(f.sessions*sm)}</span></div>`;
+  if(f.custom&&!f.steps.length){const cm=f.cm||(f.sessions*S.settings.sessionMin);const cH=Math.floor(cm/60),cMn=cm%60;html+=`<div class="fgroup"><span class="flabel">Durée du travail</span><div class="hm"><input type="number" id="cH" inputmode="numeric" min="0" max="20" value="${cH}" aria-label="Heures" onchange="setCM()"><span>h</span><input type="number" id="cM" inputmode="numeric" min="0" max="59" step="5" value="${cMn}" aria-label="Minutes" onchange="setCM()"><span>min</span></div></div>`}
   // hints
   const r=f.subject?ratioFor(f.subject):null;
   if(r&&Math.abs(r-1)>=0.2)html+=`<div class="hint">En ${h(f.subject)}, tes travaux ont pris en moyenne <b>${r>1?'plus':'moins'} de temps</b> que prévu (×${r.toFixed(1).replace('.',',')}). ${r>1?'Choisis peut-être une taille de plus.':'Une taille de moins suffira peut-être.'}</div>`;
@@ -1113,6 +1113,7 @@ function computePlanExcluding(id){if(!id)return computePlan();const keep=S.items
 function syncInputs(){syncSteps_();const t=document.getElementById('fTitle');if(t)ui.form.title=t.value;const n=document.getElementById('fNotes');if(n)ui.form.notes=n.value}
 function setF(k,v){syncInputs();ui.form[k]=v;if(k==='subject')ui.form.err=null;if(k==='type')ui.form.noRev=false;if(k==='type'&&!ui.form.custom){ui.form.sessions=TYPES[v].sizes[Math.max(0,ui.form.size)]}renderSheet()}
 function setNoRev(){syncInputs();const f=ui.form;f.noRev=true;f.custom=false;f.size=-1;f.sessions=0;renderSheet()}
+function setCM(){const H=document.getElementById('cH'),M=document.getElementById('cM');const f=ui.form;f.custom=true;f.size=-1;f.noRev=false;f.cm=Math.max(5,(+H.value||0)*60+(+M.value||0));f.sessions=Math.max(1,Math.round(f.cm/blockMin()));renderSheet()}
 function setSize(k){syncInputs();const f=ui.form;f.noRev=false;if(k<0){f.custom=true}else{f.custom=false;f.size=k;f.sessions=TYPES[f.type].sizes[k]}renderSheet()}
 function bump(n){syncInputs();ui.form.sessions=Math.max(1,Math.min(20,ui.form.sessions+n));renderSheet()}
 function saveForm(){
