@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.48'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.49'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -519,7 +519,7 @@ function defaultState(){return{
 }}
 function normalize(s){const d=defaultState();s=Object.assign(d,s||{});s.settings=Object.assign(defaultState().settings,s.settings||{});
   if(Array.isArray(s.settings.subjects))s.settings.subjects=s.settings.subjects.filter(x=>x!=='Éduc. physique');
-  s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i)).map(i=>{if(i.notes&&String(i.notes).trim()){i.title=String(i.title||'').trim()+' – '+String(i.notes).trim();i.notes=''}return i});
+  s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>i.noRev&&i.due<today()&&!i.completed?Object.assign(i,{completed:true,completedAt:i.due}):i).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i)).map(i=>{if(i.notes&&String(i.notes).trim()){i.title=String(i.title||'').trim()+' – '+String(i.notes).trim();i.notes=''}return i});
   s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.events=(s.events||[]).filter(e=>e&&e.id);return s}
 
 let S=defaultState();
@@ -914,14 +914,14 @@ function viewCalendar(){
 }
 
 function listRow(i){
-  const pct=Math.round(Math.min(1,i.done/i.sessions)*100);
+  const pct=i.sessions?Math.round(Math.min(1,i.done/i.sessions)*100):0;
   const n=diff(today(),i.due),late=!i.completed&&n<0;
   const dl=i.completed?'Terminé':late?'En retard':n===0?"Aujourd'hui":n===1?'Demain':(JOURS[parse(i.due).getDay()].replace(/^./,c=>c.toUpperCase())+' '+parse(i.due).getDate());
   const stepTxt=hasSteps(i)?' • '+i.steps.filter(z=>z.done>=z.sessions).length+'/'+i.steps.length+' étapes':'';
   return `<button class="ant ${typeCls(i.type)} ${i.completed?'done':''}" onclick="openEdit('${i.id}')">
     <span class="aic">${subjIcon(i.subject)}</span>
     <span class="atx"><b>${h(i.title)}</b><span>${h(i.subject||'Sans matière')} • ${TYPES[i.type].label}${stepTxt}</span>${i.completed?'':`<span class="prog"><i style="width:${pct}%"></i></span>`}</span>
-    <span class="adt"><b class="${late?'late':i.type==='controle'?'exam':''}">${h(dl)}</b><span>${i.done}/${i.sessions} séances</span></span></button>`;
+    <span class="adt"><b class="${late?'late':i.type==='controle'?'exam':''}">${h(dl)}</b><span>${i.noRev?'Pas de révision':i.done+'/'+i.sessions+' séances'}</span></span></button>`;
 }
 function viewList(){
   const act=S.items.filter(i=>!i.completed).sort((a,b)=>a.due<b.due?-1:1);
@@ -1080,7 +1080,7 @@ function formHtml(){
   ${stepsHtml()}
   ${f.steps.length?'':`<div class="fgroup"><span class="flabel">${f.type==='controle'?'Combien de matière à réviser ?':'Taille estimée de l\'effort'}<small style="color:var(--ok)">${MS('speed')}Adapté à ton rythme</small></span>
    <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*S.settings.sessionMin)}</small></button>`).join('')}
-   <button class="opt ${f.custom?'on':''}" onclick="setSize(-1)"><svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="4" width="14" height="22" rx="2" class="pg" stroke-dasharray="3 2.5"/><path d="M16 11v8M12 15h8"/></svg>Autre<small>à choisir</small></button></div></div>`}`;
+   <button class="opt ${(f.custom||f.noRev)?'on':''}" onclick="${f.type==='controle'?'setNoRev()':'setSize(-1)'}"><svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="4" width="14" height="22" rx="2" class="pg" stroke-dasharray="3 2.5"/><path d="M16 11v8M12 15h8"/></svg>${f.type==='controle'?'Pas de révision<small>rien à faire</small>':'Autre<small>à choisir</small>'}</button></div></div>`}`;
   if(f.custom&&!f.steps.length)html+=`<div class="stepper"><button onclick="bump(-1)" aria-label="Une séance de moins">−</button><b>${f.sessions} séance${f.sessions>1?'s':''}</b><button onclick="bump(1)" aria-label="Une séance de plus">+</button><span class="sub">≈ ${fmtMin(f.sessions*sm)}</span></div>`;
   // hints
   const r=f.subject?ratioFor(f.subject):null;
@@ -1114,8 +1114,9 @@ function stepMove(k,n){syncInputs();const a=ui.form.steps;[a[k],a[k+n]]=[a[k+n],
 function stepDel(k){syncInputs();ui.form.steps.splice(k,1);renderSheet()}
 function computePlanExcluding(id){if(!id)return computePlan();const keep=S.items;S.items=S.items.filter(i=>i.id!==id);const P=computePlan();S.items=keep;return P}
 function syncInputs(){syncSteps_();const t=document.getElementById('fTitle');if(t)ui.form.title=t.value;const n=document.getElementById('fNotes');if(n)ui.form.notes=n.value}
-function setF(k,v){syncInputs();ui.form[k]=v;if(k==='subject')ui.form.err=null;if(k==='type'&&!ui.form.custom){ui.form.sessions=TYPES[v].sizes[Math.max(0,ui.form.size)]}renderSheet()}
-function setSize(k){syncInputs();const f=ui.form;if(k<0){f.custom=true}else{f.custom=false;f.size=k;f.sessions=TYPES[f.type].sizes[k]}renderSheet()}
+function setF(k,v){syncInputs();ui.form[k]=v;if(k==='subject')ui.form.err=null;if(k==='type')ui.form.noRev=false;if(k==='type'&&!ui.form.custom){ui.form.sessions=TYPES[v].sizes[Math.max(0,ui.form.size)]}renderSheet()}
+function setNoRev(){syncInputs();const f=ui.form;f.noRev=true;f.custom=false;f.size=-1;f.sessions=0;renderSheet()}
+function setSize(k){syncInputs();const f=ui.form;f.noRev=false;if(k<0){f.custom=true}else{f.custom=false;f.size=k;f.sessions=TYPES[f.type].sizes[k]}renderSheet()}
 function bump(n){syncInputs();ui.form.sessions=Math.max(1,Math.min(20,ui.form.sessions+n));renderSheet()}
 function saveForm(){
   syncInputs();const f=ui.form;
@@ -1127,12 +1128,12 @@ function saveForm(){
   const steps=f.steps.map((st,k)=>Object.assign({},st,{label:(st.label||'').trim()||('Étape '+(k+1))}));
   if(f.id){const i=itemById(f.id);const changedEst=i.done===0;
     if(steps.length){if(!hasSteps(i)&&i.done){steps[0].done=Math.min(i.done,steps[0].sessions)}i.steps=steps}else{if(hasSteps(i))i.done=i.steps.reduce((a,x)=>a+x.done,0);delete i.steps}
-    Object.assign(i,{title:f.title.trim(),subject:f.subject,type:f.type,due:f.due,notes:f.notes});
-    if(hasSteps(i))syncSteps(i);else i.sessions=Math.max(f.sessions,i.done||0,1);
+    Object.assign(i,{title:f.title.trim(),subject:f.subject,type:f.type,due:f.due,notes:f.notes,noRev:!!f.noRev});
+    if(hasSteps(i))syncSteps(i);else i.sessions=f.noRev?0:Math.max(f.sessions,i.done||0,1);
     if(changedEst)i.est0=i.sessions;
-    if(i.done>=i.sessions&&!i.completed)completeItem(i);
+    if(!f.noRev&&i.done>=i.sessions&&!i.completed)completeItem(i);
   }else{
-    const ni={id:uid(),title:f.title.trim(),subject:f.subject,type:f.type,due:f.due,sessions:f.sessions,done:0,log:[],slog:[],notes:f.notes,completed:false,created:today()};
+    const ni={id:uid(),title:f.title.trim(),subject:f.subject,type:f.type,due:f.due,noRev:!!f.noRev,sessions:f.sessions,done:0,log:[],slog:[],notes:f.notes,completed:false,created:today()};
     if(steps.length){ni.steps=steps;syncSteps(ni)}ni.est0=ni.sessions;S.items.push(ni);
   }
   commit();ui.sheet=null;ui.form=null;
