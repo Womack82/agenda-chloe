@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.43'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.44'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -891,10 +891,7 @@ function viewCalendar(){
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
   html+=`<div class="section"><h2>${h(longDate(d).replace(/^./,c=>c.toUpperCase()))}</h2>`;
-  html+=`<div class="sub" style="font-weight:800">À remettre ce jour-là</div>`;
-  if(dues.length)dues.forEach(i=>html+=listRow(i));else html+=`<div class="card empty">Rien à remettre ce jour-là.</div>`;
-  if(dues.length){/* jour de remise : seul le travail final est affiché */}
-  else if(d>=t){
+  if(d>=t){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
     html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*sm):''}</div>`;
     if(!ids.length)html+=`<div class="card empty">Rien de prévu ce jour-là.</div>`;
