@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.46'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.47'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -877,7 +877,7 @@ function viewCalendar(){
     if(k>=35&&!inM)break;
     const dues=S.items.filter(i=>i.due===d);
     let loadBar='';
-    if(d>=t&&P.load[d]!=null){const c=P.cap[d],l=P.load[d];const pct=c?Math.min(100,l/c*100):(l?100:0);
+    if(false){const c=P.cap[d],l=P.load[d];const pct=c?Math.min(100,l/c*100):(l?100:0);
       if(l)loadBar=`<span class="load"><i class="${l>c?'over':l===c?'full':''}" style="width:${pct}%"></i></span>`;}
     const evs=eventsOn(d);const blocked=evs.some(e=>e.free===0);
     html+=`<button class="cell ${inM?'':'out'} ${[0,6].includes(parse(d).getDay())?'wkend':''} ${d===t?'today':''} ${d===ui.selDay?'sel':''} ${blocked?'blocked':''}" onclick="selDay('${d}')" aria-label="${h(longDate(d))}">
