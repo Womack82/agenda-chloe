@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.2'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.3'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -702,9 +702,19 @@ try{new MutationObserver(applyTheme).observe(document.documentElement,{attribute
 const LEVELS=['Débutante','Apprentie','Bien partie','Organisée','Pro du planning','Championne','Maîtresse du temps','Légende'];
 const PER_LEVEL=15;
 function levelInfo(){const st=S.stars||0;const n=Math.floor(st/PER_LEVEL);return{n:n+1,name:LEVELS[Math.min(n,LEVELS.length-1)],pct:Math.round((st%PER_LEVEL)/PER_LEVEL*100),left:PER_LEVEL-(st%PER_LEVEL)}}
+// Mémorise, pour chaque jour où l'app est ouverte, les travaux prévus ce jour-là (S.planDays[date] = ids)
+function notePlanDay(P){const t=today();S.planDays=S.planDays||{};const cur=S.planDays[t]||[];
+  const next=[...new Set([...cur,...(P.plan[t]||[]).map(e=>ent(e).id)])];
+  if(next.length!==cur.length){S.planDays[t]=next;Object.keys(S.planDays).forEach(k=>{if(k<addDays(t,-400))delete S.planDays[k]});commit()}}
+// Un jour passé est « raté » si un travail prévu ce jour-là n'a pas été coché à cette date
+function missedDay(d){const ids=(S.planDays||{})[d];if(!ids||!ids.length)return false;
+  return ids.some(id=>{const it=itemById(id);return it&&!(it.log||[]).includes(d)})}
+// Dernier jour passé où ce travail était prévu et non fait (travail en retard)
+function lateDay(id){const t=today();const it=itemById(id);const pd=S.planDays||{};let best=null;
+  Object.keys(pd).forEach(d=>{if(d<t&&pd[d].includes(id)&&!((it&&it.log)||[]).includes(d)&&(!best||d>best))best=d});return best}
 function streak(){const t=today();const worked=new Set();S.items.forEach(i=>(i.log||[]).forEach(d=>worked.add(d)));
   let d=worked.has(t)?t:addDays(t,-1),n=0;
-  for(let k=0;k<400;k++){if(worked.has(d)){n++}else if(slotsFor(d)>0)break;d=addDays(d,-1)}return n}
+  for(let k=0;k<400;k++){if(worked.has(d)){n++}else if(missedDay(d))break;d=addDays(d,-1)}return n}
 const CHEERS=['Bien joué.','Une de moins !','Tu gères.','Bon travail.','Ça avance bien.','Ton futur toi te dit merci.','C\'est fait, bravo.'];
 const cheer=()=>CHEERS[Math.floor(Math.random()*CHEERS.length)];
 function confetti(big){
@@ -746,7 +756,7 @@ function taskRow(it,opts){
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
   const sess=opts.session?fmtMin(S.settings.sessionMin)+' à faire':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
-  const askDay=!opts.done&&opts.day&&opts.day!==today();
+  const askDay=!opts.done&&((opts.day&&opts.day!==today())||!!lateDay(it.id));
   const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:askDay?`askDoneDay('${it.id}','${st?st.id:''}','${opts.day}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
     <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
@@ -978,6 +988,7 @@ function viewSettings(){
 function render(){
   applyTheme();
   if(ui.auth){document.getElementById('app').innerHTML=authView();document.getElementById('nav').style.display='none';renderSheet();return}
+  notePlanDay(computePlan());
   document.getElementById('nav').style.display='';
   const v={today:viewToday,calendar:viewCalendar,list:viewList,settings:viewSettings}[ui.view]||viewToday;
   document.getElementById('app').innerHTML=v();
@@ -1158,7 +1169,7 @@ function doSession(id,sid,doneDate){const i=itemById(id);const lv=levelInfo().n;
   const stepDone=st&&st.done>=st.sessions;
   if(i.done>=i.sessions){completeItem(i)}
   commit();ui.sheet=i.completed?null:{kind:'after',id,step:st?st.id:null,stepDone,cheer:cheer()};render();confetti(i.completed||stepDone)}
-function askDoneDay(id,sid,day){ui.doneDay={id,sid:sid||null,day,date:today()};ui.sheet={kind:'doneday'};renderSheet()}
+function askDoneDay(id,sid,day){ui.doneDay={id,sid:sid||null,day,date:lateDay(id)||today()};ui.sheet={kind:'doneday'};renderSheet()}
 function doneDayHtml(){const d=ui.doneDay;const it=itemById(d.id);return `<h2>À quelle date as-tu fait ce travail ?</h2>${it?`<div class="sub">« ${h(it.title)} »</div>`:''}<label class="f" for="doneDate">Date<input type="date" id="doneDate" value="${d.date}" onchange="ui.doneDay.date=this.value"></label><div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmDoneDay()">Confirmer</button></div>`}
 function confirmDoneDay(){const d=ui.doneDay;const dt=(document.getElementById('doneDate')||{}).value||d.date;ui.sheet=null;doSession(d.id,d.sid,dt)}
 function undoSession(id){const i=itemById(id);const k=(i.log||[]).lastIndexOf(today());if(k<0)return;
