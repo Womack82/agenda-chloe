@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.45'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.46'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -893,7 +893,7 @@ function viewCalendar(){
   html+=`<div class="section"><h2>${h(longDate(d).replace(/^./,c=>c.toUpperCase()))}</h2>`;
   if(d>=t){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
-    html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*sm):''}</div>`;
+    html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*S.settings.sessionMin):''}</div>`;
     if(!ids.length)html+=`<div class="card empty">Rien de prévu ce jour-là.</div>`;
     ids.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:idx[d][k],step:x.st})});
   }else{
@@ -906,7 +906,7 @@ function viewCalendar(){
   const laterDays=Object.keys(P.plan).filter(x=>x>=t&&x!==d&&(P.plan[x]||[]).length).sort();
   html+=`<div class="section"><h2>Travail planifié</h2>`;
   if(laterDays.length)laterDays.forEach(x=>{
-    html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*sm)}</div>`;
+    html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*S.settings.sessionMin)}</div>`;
     P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st})});
   });else html+=`<div class="card empty">Aucun travail planifié.</div>`;
   html+=`</div>`;
