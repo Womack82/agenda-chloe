@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.51'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.52'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -996,9 +996,6 @@ function evHtml(){const e=ui.ev;const sugg=['Sleepover','Sortie','Autre'];
   
   ${e.weekly?`<div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800;color:var(--mute)">Quel jour ?<div class="chips">${[1,2,3,4,5,6,0].map(w=>`<button class="opt ${e.weekday===w?'on':''}" style="padding:7px 11px" onclick="setE('weekday',${w})">${JOURS[w]}</button>`).join('')}</div></div>`
     :`<label class="f" for="eDate">Quel jour ?<input type="date" id="eDate" value="${e.date}" onchange="setE('date',this.value)"></label>`}
-  <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:800;color:var(--mute)">Temps qui reste pour les devoirs ce jour-là
-   <div class="hm"><input type="number" id="eH" inputmode="numeric" min="0" max="10" value="${e.fh}" aria-label="Heures"><span>h</span><input type="number" id="eM" inputmode="numeric" min="0" max="59" step="5" value="${e.fm}" aria-label="Minutes"><span>min</span></div>
-   <span class="sub" style="font-weight:600">Mets 0 h 0 min si tu n'as pas de temps pour les devoirs ce jour-là.</span></div>
   <button class="btn full" onclick="saveEvent()">Ajouter</button>`}
 function readHM(){const H=document.getElementById('eH'),M=document.getElementById('eM');if(H)ui.ev.fh=Math.max(0,Math.min(10,parseInt(H.value,10)||0));if(M)ui.ev.fm=Math.max(0,Math.min(59,parseInt(M.value,10)||0))}
 function setE(k,v){readHM();const t=document.getElementById('eLabel');if(t)ui.ev.label=t.value;ui.ev[k]=v;renderSheet()}
