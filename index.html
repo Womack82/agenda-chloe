@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.41'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.42'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -861,7 +861,7 @@ function viewToday(){
   html+=`</div>`;
   // upcoming deadlines
   const tomorrow=addDays(t,1),tplan=P.plan[tomorrow]||[];
-  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;tplan.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:sessionIndexMap(P)[tomorrow][k],step:x.st,noChk:true})});html+=`</div>`}
+  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;tplan.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:sessionIndexMap(P)[tomorrow][k],step:x.st})});html+=`</div>`}
   return html;
 }
 
