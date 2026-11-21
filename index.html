@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '1.52'; // à augmenter à chaque mise à jour
+const APP_VERSION = '1.53'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -661,8 +661,8 @@ function computePlan(){
           const same=plan[d].filter(p=>p===it.id||p.startsWith(it.id+':')).length+(d===t?dt:0);
           let s=0;
           if(l>=c)s+=1000+(l-c+1)*100;          // pas de place ce soir-là
-          s+=same*60;                            // évite 2 séances du même travail le même soir
-          s+=c>0?(l/c)*8:0;                      // équilibre la charge
+          // plusieurs séances d'un même travail peuvent tomber le même soir si le temps le permet
+          s+=(c>0&&it.type==='controle')?(l/c)*8:0;                      // équilibre la charge
           if(it.type==='controle')s+=(n-1-j)*1.5; // révisions dans les jours avant le contrôle
           else if(it.type==='devoir')s+=j*1.5;    // devoir : le plus tôt possible
           else s+=j*0.4;                          // projet : réparti
