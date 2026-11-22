@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.3'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.4'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -941,8 +941,8 @@ function viewList(){
   if(!act.length)html+=`<div class="card empty">Aucun travail en cours. Ajoute-en un avec le bouton +.</div>`;
   act.forEach(i=>html+=listRow(i));
   html+=`</div>`;
-  const acts=S.events.filter(e=>e.kind!=='weekly').sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  if(acts.length){html+=`<div class="section"><h2>Activité</h2>`;acts.forEach(x=>{const past=x.date<today();html+=`<button class="row tap" onclick="openEventEdit('${x.id}')" style="${past?'opacity:.55':''}"><div class="main"><span class="title">${h(x.label)}</span><span class="meta">${h(longDate(x.date))}</span></div></button>`});html+=`</div>`}
+  const acts=S.events.filter(e=>e.kind!=='weekly'&&e.date>=today()).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  if(acts.length){html+=`<div class="section"><h2>Activité</h2>`;acts.forEach(x=>{html+=`<button class="row tap" onclick="openEventEdit('${x.id}')"><div class="main"><span class="title">${h(x.label)}</span><span class="meta">${h(longDate(x.date))}</span></div></button>`});html+=`</div>`}
   if(done.length){html+=`<details class="section" style="margin-top:22px"><summary style="font-family:var(--display);font-weight:700;font-size:20px;cursor:pointer;list-style:none">Terminés (${done.length})</summary><div class="stack" style="margin-top:10px">`;done.forEach(i=>html+=listRow(i));html+=`</div></details>`}
   return html;
 }
