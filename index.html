@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.4'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.5'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1158,7 +1158,15 @@ function saveForm(){
 function deleteItem(id){S.items=S.items.filter(i=>i.id!==id);commit();closeSheet()}
 function completeItem(i){i.completed=true;i.completedAt=today();S.history.push({id:i.id,subject:i.subject,type:i.type,est:i.est0||i.sessions,actual:Math.max(1,i.done)});if(S.history.length>200)S.history=S.history.slice(-200)}
 function uncomplete(i){i.completed=false;S.history=S.history.filter(x=>x.id!==i.id)}
-function finishItem(id){const i=itemById(id);completeItem(i);if(hasSteps(i))i.steps.forEach(z=>{z.sessions=Math.max(1,z.done);});commit();closeSheet();confetti(true)}
+// sid = étape concernée (après une séance) ; sans sid, tout le travail est terminé d'un coup
+function finishItem(id,sid){const i=itemById(id);
+  if(hasSteps(i)){
+    if(sid){const st=i.steps.find(z=>z.id===sid);if(st)st.sessions=Math.max(1,st.done)}
+    else i.steps.forEach(z=>{z.done=z.sessions});
+    syncSteps(i);
+    if(i.done>=i.sessions)completeItem(i);
+  }else{i.sessions=Math.max(1,i.done);completeItem(i)}
+  commit();closeSheet();confetti(!!i.completed)}
 function reopen(id){const i=itemById(id);uncomplete(i);if(i.done>=i.sessions){if(hasSteps(i)){i.steps[i.steps.length-1].sessions++;syncSteps(i)}else i.sessions=i.done+1}commit();closeSheet()}
 
 /* session done */
@@ -1184,7 +1192,7 @@ function afterHtml(){const i=itemById(ui.sheet.id);if(!i)return'';const rem=i.se
   const stepMsg=sst&&ui.sheet.stepDone?`<div class="hint"><span style="color:var(--ok);display:inline-flex;vertical-align:middle;margin-right:4px">${MS('check_circle')}</span>Étape « ${h(sst.label)} » terminée ! Encore ${i.steps.filter(z=>z.done<z.sessions).length} étape${i.steps.filter(z=>z.done<z.sessions).length>1?'s':''}.</div>`:'';
   return `<h2>${h(ui.sheet.cheer||'Bien joué !')}</h2>${lu}${stepMsg}<div class="sub">C'était comment ?</div>
    <div class="stack"><button class="btn" onclick="closeSheet()">Ça a pris le temps prévu</button>
-   <button class="btn ghost" onclick="finishItem('${i.id}')">Ça m'a pris moins de temps</button>
+   <button class="btn ghost" onclick="finishItem('${i.id}','${ui.sheet.step||''}')">Ça m'a pris moins de temps</button>
    <button class="btn ghost" onclick="needMore('${i.id}','${ui.sheet.step||''}')">Ça a pris plus de temps que prévu</button></div>`}
 function needMore(id,sid){const i=itemById(id);if(i.completed)uncomplete(i);if(hasSteps(i)){const st=i.steps.find(z=>z.id===sid)||i.steps[i.steps.length-1];st.sessions++;syncSteps(i)}else i.sessions++;commit();closeSheet()}
 
