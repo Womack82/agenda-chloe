@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.5'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.6'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -1103,7 +1103,7 @@ function formHtml(){
   if(f.due){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const need=Math.max(0,fSess-fDone);
     if(need>free)html+=`<div class="hint warn">D'ici là, il reste environ ${fmtMin(free*sm)} de libre et ce travail demande ${fmtMin(need*sm)}. Certains soirs vont déborder : commence dès que possible ou ajoute du temps dans le calendrier.</div>`;
     else if(f.type==='controle'&&!f.steps.length)html+=`<div class="hint">Les ${need} révisions seront placées dans les soirs avant le contrôle.</div>`;}
-  if(editing&&it&&it.type!=='controle'){html+=`<div class="card stack" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>${it.done}/${it.sessions} séances faites</b></div><div class="btnrow">
+  if(editing&&it&&!it.noRev){html+=`<div class="card stack" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>${it.done}/${it.sessions} séances faites</b></div><div class="btnrow">
     ${it.completed?`<button class="btn ghost" onclick="reopen('${it.id}')">Remettre à faire</button>`:`<button class="btn ghost" onclick="finishItem('${it.id}')">C'est terminé ✓</button>`}</div></div>`}
   html+=`<button class="btn full" onclick="saveForm()">${MS(editing?'save':'calendar_add_on')}${editing?'Enregistrer':'Planifier automatiquement'}</button>`;
   if(editing)html+=f.confirmDel?`<div class="btnrow"><button class="btn ghost" onclick="ui.form.confirmDel=false;renderSheet()">Garder</button><button class="btn danger" onclick="deleteItem('${f.id}')">Oui, supprimer</button></div>`
