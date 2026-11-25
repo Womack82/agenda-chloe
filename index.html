@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.6'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.7'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -661,6 +661,9 @@ function computePlan(){
           const same=plan[d].filter(p=>p===it.id||p.startsWith(it.id+':')).length+(d===t?dt:0);
           let s=0;
           if(l>=c)s+=1000+(l-c+1)*100;          // pas de place ce soir-là
+          // en semaine, pas deux étapes du même travail le même jour si le temps le permet (le week-end, c'est ok)
+          const wd=parse(d).getDay();
+          if(u.key.includes(':')&&wd>=1&&wd<=5&&plan[d].some(p=>p.startsWith(it.id+':')&&p!==u.key))s+=500;
           // plusieurs séances d'un même travail peuvent tomber le même soir si le temps le permet
           s+=(c>0&&it.type==='controle')?(l/c)*8:0;                      // équilibre la charge
           if(it.type==='controle')s+=(n-1-j)*1.5; // révisions dans les jours avant le contrôle
