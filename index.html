@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.0.2'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.0.3'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -1147,7 +1147,7 @@ function formHtml(){
    <div class="datebar"><span class="l"><span class="ib">${MS('calendar_month')}</span>Choisir une date précise</span><input type="date" id="fDue" value="${f.due}" onchange="setF('due',this.value)" aria-label="Date"></div></div>
   ${stepsHtml()}
   ${f.steps.length?'':`<div class="fgroup"><span class="flabel">${f.type==='controle'?'Combien de matière à réviser ?':'Taille estimée de l\'effort'}<small style="color:var(--ok)">${MS('speed')}Adapté à ton rythme</small></span>
-   <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(presetSess(f.type,k)*BLOCK)}</small></button>`).join('')}
+   <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*S.settings.sessionMin)}</small></button>`).join('')}
    <button class="opt ${(f.custom||f.noRev)?'on':''}" onclick="${f.type==='controle'?'setNoRev()':'setSize(-1)'}"><svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="4" width="14" height="22" rx="2" class="pg" stroke-dasharray="3 2.5"/><path d="M16 11v8M12 15h8"/></svg>${f.type==='controle'?'Pas de révision<small>rien à faire</small>':'Autre<small>à choisir</small>'}</button></div></div>`}`;
   if(f.custom&&!f.steps.length){const cm=f.cm||(f.sessions*BLOCK);const cH=Math.floor(cm/60),cMn=cm%60;html+=`<div class="fgroup"><span class="flabel">Durée du travail</span><div class="hm"><input type="number" id="cH" inputmode="numeric" min="0" max="20" value="${cH}" aria-label="Heures" onchange="setCM()"><span>h</span><input type="number" id="cM" inputmode="numeric" min="0" max="59" step="5" value="${cMn}" aria-label="Minutes" onchange="setCM()"><span>min</span></div></div>`}
   // hints
