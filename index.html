@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.0.1'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.0.2'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -692,24 +692,31 @@ function computePlan(){
       let cand=all.filter(d=>rev?d<=bound:d>=bound);if(!cand.length)cand=[bound];if(rev&&last>t&&cand.some(d=>d!==last))cand=cand.filter(d=>d!==last);
       if(ml===0&&cand.length>1)cand=cand.filter(d=>d!==t); // heure limite passée : plus rien ce soir
       const n=all.length;let edge=null;
+      const scoreAt=d=>{
+        const j=all.indexOf(d)<0?0:all.indexOf(d);
+        const c=cap[d],l=load[d];
+        let s=0;
+        if(l>=c)s+=1000+(l-c+1)*100;          // pas de place ce soir-là
+        // en semaine, pas deux étapes du même travail le même jour si le temps le permet (le week-end, c'est ok)
+        const wd=parse(d).getDay();
+        if(u.key.includes(':')&&wd>=1&&wd<=5&&plan[d].some(p=>p.startsWith(it.id+':')&&p!==u.key))s+=500;
+        s+=(c>0&&it.type==='controle')?(l/c)*8:0;                      // équilibre la charge
+        if(it.type==='controle')s+=(n-1-j)*1.5; // révisions dans les jours avant le contrôle
+        else if(it.type==='devoir')s+=j*1.5;    // devoir : le plus tôt possible
+        else s+=j*0.4;                          // projet : réparti
+        return s};
+      // 1) le travail (ou l'étape) entier sur un même jour qui a assez de temps libre : jamais un bout de 15 min dans un trou
+      const whole=cand.filter(d=>u.rem>0&&cap[d]-load[d]>=u.rem);
+      if(whole.length){
+        let wb=whole[0],ws=Infinity;
+        whole.forEach(d=>{const s=scoreAt(d);if(s<ws){ws=s;wb=d}});
+        for(let k=0;k<u.rem;k++){plan[wb].push(u.key);load[wb]++}
+        if(edge===null||(rev?wb<edge:wb>edge))edge=wb;
+      }else
+      // 2) aucun jour ne peut le contenir : on le répartit bloc par bloc (dernier recours)
       for(let k=0;k<u.rem;k++){
         let best=cand[0],bs=Infinity;
-        cand.forEach(d=>{
-          const j=all.indexOf(d)<0?0:all.indexOf(d);
-          const c=cap[d],l=load[d];
-          const same=plan[d].filter(p=>p===it.id||p.startsWith(it.id+':')).length+(d===t?dt:0);
-          let s=0;
-          if(l>=c)s+=1000+(l-c+1)*100;          // pas de place ce soir-là
-          // en semaine, pas deux étapes du même travail le même jour si le temps le permet (le week-end, c'est ok)
-          const wd=parse(d).getDay();
-          if(u.key.includes(':')&&wd>=1&&wd<=5&&plan[d].some(p=>p.startsWith(it.id+':')&&p!==u.key))s+=500;
-          // plusieurs séances d'un même travail peuvent tomber le même soir si le temps le permet
-          s+=(c>0&&it.type==='controle')?(l/c)*8:0;                      // équilibre la charge
-          if(it.type==='controle')s+=(n-1-j)*1.5; // révisions dans les jours avant le contrôle
-          else if(it.type==='devoir')s+=j*1.5;    // devoir : le plus tôt possible
-          else s+=j*0.4;                          // projet : réparti
-          if(s<bs){bs=s;best=d}
-        });
+        cand.forEach(d=>{const s=scoreAt(d);if(s<bs){bs=s;best=d}});
         let ovr=load[best]>=cap[best];if(ovr&&last>=t)best=last;
         plan[best].push(u.key);load[best]++;
         if(ovr)over.push({id:it.id,key:u.key,title:it.title,due:it.due,d:best});
