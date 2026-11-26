@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.7'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.8'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -534,7 +534,7 @@ let dbRef=null,saving=false,pending=false,saveTimer=null,sync='local';
 function commit(){S.updatedAt=Date.now();try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}
   if(dbRef){clearTimeout(saveTimer);saveTimer=setTimeout(flush,700)}}
 async function flush(){if(!dbRef)return;if(saving){pending=true;return}saving=true;
-  try{await dbRef.set(JSON.parse(JSON.stringify(S)));sync='cloud';lastSaved=S.updatedAt}
+  try{await Promise.race([dbRef.set(JSON.parse(JSON.stringify(S))),new Promise((_,rej)=>setTimeout(()=>rej({code:'timeout'}),20000))]);sync='cloud';lastSaved=S.updatedAt}
   catch(e){if(e&&(e.code==='invalid_argument'||e.code==='permission-denied')){sync='readonly';dbRef=null}else if(e&&e.code==='quota_exceeded'){sync='full'}else sync='error'}
   saving=false;renderStatus();if(pending){pending=false;flush()}}
 // Les données vivent dans la base de l'artifact (doc « agenda/principal ») : elles survivent à chaque mise à jour de l'app.
@@ -590,6 +590,7 @@ async function connectFirestore(){
   try{
     const snap=await doc.get();clearTimeout(t);
     dbRef={set:d=>doc.set({data:JSON.stringify(d),updatedAt:d.updatedAt||Date.now(),by:fbUser.email||''})};sync='cloud';
+    pullDoc=doc;
     const r=snap.exists?JSON.parse(snap.data().data||'null'):null;
     if(r&&r.items&&(r.updatedAt||0)>=(S.updatedAt||0)){S=normalize(r);try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}lastSaved=S.updatedAt||0;render()}
     else if(S.items.length||S.updatedAt){flush()}
@@ -598,6 +599,18 @@ async function connectFirestore(){
     renderStatus();
   }catch(e){clearTimeout(t);sync=e&&e.code==='permission-denied'?'denied':'error';render()}
 }
+// Relecture depuis le serveur : quand l'app revient au premier plan, et toutes les 2 min tant qu'elle est ouverte.
+// Rattrape les modifications faites sur un autre téléphone si l'écoute en direct a été coupée en arrière-plan.
+let pullDoc=null;
+async function pullFromServer(){if(!pullDoc||!fbUser||saving)return;
+  try{const snap=await pullDoc.get({source:'server'});if(!snap.exists||saving)return;
+    const r=JSON.parse(snap.data().data||'null');
+    if(r&&r.items&&(r.updatedAt||0)>(S.updatedAt||0)){S=normalize(r);lastSaved=S.updatedAt;try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}if(!ui.sheet)render();else renderStatus()}
+  }catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pullFromServer()});
+window.addEventListener('pageshow',pullFromServer);
+window.addEventListener('focus',pullFromServer);
+setInterval(()=>{if(document.visibilityState==='visible')pullFromServer()},120000);
 function authView(){const a=ui.auth;const nm=S.settings.name;
   let body='';
   if(a.step==='sending')body=`<div class="card empty">Connexion en cours…</div>`;
