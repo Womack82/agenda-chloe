@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.0.4'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.0'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -524,7 +524,7 @@ function normalize(s){const d=defaultState();s=Object.assign(d,s||{});s.settings
   s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>i.noRev&&i.due<today()&&!i.completed?Object.assign(i,{completed:true,completedAt:i.due}):i).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i)).map(i=>{if(i.notes&&String(i.notes).trim()){i.title=String(i.title||'').trim()+' – '+String(i.notes).trim();i.notes=''}return i});
   s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.pin=s.pin||{};s.events=(s.events||[]).filter(e=>e&&e.id);return migrateUnits(s)}
 // Ancien modèle : une séance = la durée « normale » (ex. 45 min). Nouveau : une séance = 15 min. On convertit une fois.
-function migrateUnits(s){if(s.unitMin===BLOCK)return s;
+function migrateUnits(s){if(s.unitMin!==BLOCK){
   const f=presetMinOf(s.settings||{})/BLOCK;const rep=Math.max(1,Math.round(f));
   const sc=n=>n>0?Math.max(1,Math.round(n*f)):0;
   (s.items||[]).forEach(i=>{
@@ -535,7 +535,27 @@ function migrateUnits(s){if(s.unitMin===BLOCK)return s;
     else{i.sessions=i.noRev?0:Math.max(sc(i.sessions||1),L.length);i.done=L.length}
   });
   s.history=(s.history||[]).map(x=>Object.assign({},x,{est:Math.round((x.est||0)*f),actual:Math.round((x.actual||0)*f)}));
-  s.unitMin=BLOCK;return s}
+  s.unitMin=BLOCK}
+  if(!s.baseV)migrateBase(s);
+  return s}
+// Les durées sont le temps de base ; avant cette version, elles incluaient le ratio du rythme (ex. 45 min au lieu de 30). Conversion une seule fois.
+function migrateBase(s){
+  const g=(s.settings.sessionMin||30)/presetMinOf(s.settings||{});
+  if(!isFinite(g)||g<=0||Math.abs(g-1)<0.001){s.baseV=1;return}
+  const sc=n=>n>0?Math.max(1,Math.round(n*g)):0;
+  (s.items||[]).forEach(i=>{
+    const pairs=(i.log||[]).map((d,k)=>[d,(i.slog||[])[k]??null]);
+    const total={};pairs.forEach(p=>{const key=p[1]||'';total[key]=(total[key]||0)+1});
+    const cnt={},keep=[];
+    pairs.forEach(p=>{const key=p[1]||'';cnt[key]=(cnt[key]||0)+1;if(cnt[key]<=Math.round(total[key]*g))keep.push(p)});
+    keep.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
+    i.log=keep.map(p=>p[0]);i.slog=keep.map(p=>p[1]);
+    if(i.est0)i.est0=sc(i.est0);
+    if(hasSteps(i)){i.steps.forEach(st=>{st.sessions=sc(st.sessions||1);st.done=i.slog.filter(x=>x===st.id).length});syncSteps(i)}
+    else{i.sessions=i.noRev?0:Math.max(sc(i.sessions||1),i.log.length);i.done=i.log.length}
+  });
+  s.history=(s.history||[]).map(x=>Object.assign({},x,{est:Math.round((x.est||0)*g),actual:Math.round((x.actual||0)*g)}));
+  s.baseV=1}
 
 let S=defaultState();
 const LS='agenda-devoirs-v1';
@@ -670,7 +690,12 @@ function blockMin(){return BLOCK}
 // durée d'un travail Petit / Moyen / Gros (rythme compris)
 function presetMinOf(st){return Math.round((st.sessionMin||30)*(st.pace||1)/5)*5}
 function presetMin(){return presetMinOf(S.settings)}
-function presetSess(type,k){return Math.max(1,Math.round(TYPES[type].sizes[k]*presetMin()/BLOCK))}
+// taille choisie = temps de base (sans ratio) ; le ratio du rythme ne sert qu'à la répartition sur les soirs
+function presetSess(type,k){return Math.max(1,Math.round(TYPES[type].sizes[k]*S.settings.sessionMin/BLOCK))}
+// séances de base -> blocs réellement réservés dans la journée (avec ratio)
+function plannedBlocks(n){return Math.round(n*(S.settings.pace||1))}
+// blocs réservés -> temps de base affiché (sans ratio)
+function baseMin(n){return Math.round(n/(S.settings.pace||1))*BLOCK}
 function slotsFor(d){return Math.floor(minutesFor(d)/blockMin())}
 function doneOn(it,d){return (it.log||[]).filter(x=>x===d).length}
 function hasSteps(i){return Array.isArray(i.steps)&&i.steps.length>0}
@@ -689,7 +714,7 @@ function computePlan(){
   S.items.forEach(i=>{load[t]+=doneOn(i,t)});
   const ml=minutesLeftToday();if(ml!=null)cap[t]=Math.min(cap[t],load[t]+Math.floor(ml/blockMin()));
   // unités à planifier : une par étape (ou le travail entier)
-  const unitsOf=it=>hasSteps(it)?it.steps.map(st=>({key:it.id+':'+st.id,rem:Math.max(0,st.sessions-st.done)})):[{key:it.id,rem:Math.max(0,it.sessions-it.done)}];
+  const unitsOf=it=>hasSteps(it)?it.steps.map(st=>({key:it.id+':'+st.id,rem:plannedBlocks(Math.max(0,st.sessions-st.done))})):[{key:it.id,rem:plannedBlocks(Math.max(0,it.sessions-it.done))}];
   // travaux déplacés à la main : placés d'abord, à la date choisie
   const pinnedUnits={};
   active.forEach(it=>unitsOf(it).forEach(u=>{const pd=pins[u.key];if(!u.rem||!pd||pd<t||!plan[pd])return;for(let k=0;k<u.rem;k++){plan[pd].push(u.key);load[pd]++}pinnedUnits[u.key]=true}));
@@ -750,7 +775,7 @@ function sessionIndexMap(P){ // numéro de la séance (dans l'étape ou le trava
   Object.keys(P.plan).sort().forEach(d=>{idx[d]=P.plan[d].map(e=>{const x=ent(e);count[e]=(count[e]||0)+1;return (x.st?x.st.done:x.it.done)+count[e]})});
   return idx;
 }
-function travailTropLong(f){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const it=f.id?itemById(f.id):null;const sess=f.steps.length?f.steps.reduce((a,x)=>a+x.sessions,0):f.sessions;const done=f.steps.length?f.steps.reduce((a,x)=>a+x.done,0):(it?it.done:0);return Math.max(0,sess-done)>free}
+function travailTropLong(f){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const it=f.id?itemById(f.id):null;const sess=f.steps.length?f.steps.reduce((a,x)=>a+x.sessions,0):f.sessions;const done=f.steps.length?f.steps.reduce((a,x)=>a+x.done,0):(it?it.done:0);return plannedBlocks(Math.max(0,sess-done))>free}
 function freeSlotsBefore(due,P){let f=0;const t=today();let last=addDays(due,-1);if(last<t)last=t;
   for(let d=t;d<=last;d=addDays(d,1)){f+=Math.max(0,(P.cap[d]??slotsFor(d))-(P.load[d]||0))}return f}
 
@@ -822,7 +847,7 @@ function groupBy(list,keyFn){const m=new Map();list.forEach(x=>{const k=keyFn(x)
 function taskRow(it,opts){
   const st=opts.step||null;const sarg=st?`,'${st.id}'`:'';const sm=blockMin();
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
-  const sess=opts.n?fmtMin(opts.n*sm)+' à faire':'';
+  const sess=opts.n?fmtMin(baseMin(opts.n))+' à faire':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
   const askDay=!opts.done&&((opts.day&&opts.day!==today())||!!lateDay(it.id));
   const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}','${st?st.id:''}')`:askDay?`askDoneDay('${it.id}','${st?st.id:''}','${opts.day}',${opts.n||1})`:`doSession('${it.id}','${st?st.id:''}',null,${opts.n||1})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
@@ -894,7 +919,7 @@ function viewToday(){
   const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=' Chloé';
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
   let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div>${todayLeft?'':`<span class="sp" style="flex:none">${MS('schedule')}Fini pour aujourd'hui</span>`}</div><h1>${hello}${nm} ! 👋</h1>
-   <p>${todayLeft?`Encore <strong>${fmtMin(todayLeft*BLOCK)}</strong> de travail prévu pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
+   <p>${todayLeft?`Encore <strong>${fmtMin(baseMin(todayLeft))}</strong> de travail prévu pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
    <div class="spills">${P.over.some(o=>o.d>=t)?'<span class="sp" style="background:var(--ctl-soft);color:var(--bad)">! Surcharge de travail</span>':''}<span class="streak" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
    </section>`;
   if(late.length)html+=`<div class="alert" style="border-left-color:var(--bad);background:var(--ctl-soft)"><b>En retard :</b> ${late.map(i=>h(i.title)).join(', ')}. Si c'est déjà remis, marque-le terminé dans « Mes travaux ».</div>`;
@@ -923,7 +948,7 @@ function viewToday(){
   const planned=d>=t?(P.plan[d]||[]):[];
   const doneHere=[];S.items.forEach(i=>{(i.log||[]).forEach((x,k)=>{if(x===d)doneHere.push({it:i,st:hasSteps(i)?i.steps.find(z=>z.id===(i.slog||[])[k]):null})})});
   const dues=S.items.filter(i=>i.due===d&&!i.completed);
-  html+=`<div class="section"><div class="section-head"><h2>${h(title)}</h2><span class="sub">${planned.length?'~ '+fmtMin(planned.length*BLOCK)+' au total':''}</span></div>`;
+  html+=`<div class="section"><div class="section-head"><h2>${h(title)}</h2><span class="sub">${planned.length?'~ '+fmtMin(baseMin(planned.length))+' au total':''}</span></div>`;
   eventsOn(d).forEach(e=>html+=`<div class="hint">${h(e.label)} : ${freeLabel(e.free)}.</div>`);
   {const x=stopFor(d);if(x){const ml=d===t?minutesLeftToday():null;html+=`<div class="hint">${h(x.why||'Fin des devoirs')} : pas de devoirs après ${h(x.at.replace(':00',' h').replace(':',' h '))}${ml===0?'. C\'est fini pour aujourd\'hui, le reste est déplacé aux jours suivants.':'.'}</div>`}}
   if(dues.length)html+=`<div class="sub" style="font-weight:800">À remettre ce jour-là : ${dues.map(i=>h(i.title)).join(', ')}</div>`;
@@ -965,14 +990,14 @@ function viewCalendar(){
   html+=`</div><div class="legend"></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}<span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div></div>`;
   html+=`<div style="display:flex;justify-content:center;margin-top:12px"><button class="btn ghost" onclick="openEvent(ui.selDay)">${MS('add')}Ajouter une activité</button></div>`;
   const overList=[...new Map(P.over.filter(o=>o.d>=t).map(o=>[o.id,o])).values()];
-  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" onclick="openMove('${o.key}','${o.d}')" style="display:flex;gap:10px;align-items:center;cursor:pointer"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${fmtMin(n*BLOCK)} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
+  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" onclick="openMove('${o.key}','${o.d}')" style="display:flex;gap:10px;align-items:center;cursor:pointer"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${fmtMin(baseMin(n))} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
   // selected day
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
   html+=`<div class="section"><h2>${h(longDate(d).replace(/^./,c=>c.toUpperCase()))}</h2>`;
   if(d>=t){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
-    html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*BLOCK):''}</div>`;
+    html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(baseMin(ids.length)):''}</div>`;
     if(P.load[d]>P.cap[d])html+=`<div class="hint warn">Beaucoup de travail ce jour-là. Touche un travail pour changer sa date.</div>`;
     if(!ids.length)html+=`<div class="card empty">Rien de prévu ce jour-là.</div>`;
     groupPlan(ids).forEach(([e,n])=>{const x=ent(e);html+=taskRow(x.it,{step:x.st,day:d,move:true,n})});
@@ -986,7 +1011,7 @@ function viewCalendar(){
   const laterDays=Object.keys(P.plan).filter(x=>x>=t&&x!==d&&(P.plan[x]||[]).length).sort();
   html+=`<div class="section"><h2>Travail planifié</h2>`;
   if(laterDays.length)laterDays.forEach(x=>{
-    html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*BLOCK)}</div>`;
+    html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(baseMin(P.plan[x].length))}</div>`;
     groupPlan(P.plan[x]).forEach(([e,n])=>{const y=ent(e);html+=taskRow(y.it,{step:y.st,day:x,move:true,n})});
   });else html+=`<div class="card empty">Aucun travail planifié.</div>`;
   html+=`</div>`;
@@ -1171,7 +1196,7 @@ function formHtml(){
   if(r&&Math.abs(r-1)>=0.2)html+=`<div class="hint">En ${h(f.subject)}, tes travaux ont pris en moyenne <b>${r>1?'plus':'moins'} de temps</b> que prévu (×${r.toFixed(1).replace('.',',')}). ${r>1?'Choisis peut-être une taille de plus.':'Une taille de moins suffira peut-être.'}</div>`;
   const fSess=f.steps.length?f.steps.reduce((a,x)=>a+x.sessions,0):f.sessions,fDone=f.steps.length?f.steps.reduce((a,x)=>a+x.done,0):(it?it.done:0);
   if(f.due){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const need=Math.max(0,fSess-fDone);
-    if(need>free)html+=`<div class="hint warn">D'ici là, il reste environ ${fmtMin(free*sm)} de libre et ce travail demande ${fmtMin(need*sm)}. Certains soirs vont déborder : commence dès que possible ou ajoute du temps dans le calendrier.</div>`;
+    if(plannedBlocks(need)>free)html+=`<div class="hint warn">D'ici là, il reste environ ${fmtMin(baseMin(free))} de libre et ce travail demande ${fmtMin(need*sm)}. Certains soirs vont déborder : commence dès que possible ou ajoute du temps dans le calendrier.</div>`;
     else if(f.type==='controle'&&!f.steps.length)html+=`<div class="hint">Les révisions (${fmtMin(need*sm)}) seront placées dans les soirs avant le contrôle.</div>`;}
   if(editing&&it&&!it.noRev){html+=`<div class="card stack" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>${fmtMin(it.done*BLOCK)} faites sur ${fmtMin(it.sessions*BLOCK)}</b></div><div class="btnrow">
     ${it.completed?`<button class="btn ghost" onclick="reopen('${it.id}')">Remettre à faire</button>`:`<button class="btn ghost" onclick="finishItem('${it.id}')">C'est terminé ✓</button>`}</div></div>`}
@@ -1244,7 +1269,11 @@ function doSession(id,sid,doneDate,n){const i=itemById(id);const lv=levelInfo().
   i.log=i.log||[];i.slog=i.slog||[];while(i.slog.length<i.log.length)i.slog.push(null);
   let st=null;
   // coche d'un travail : toutes les séances prévues ce jour-là pour ce travail (ou cette étape)
-  for(let j=0;j<Math.max(1,n|0);j++){
+  // n = blocs réservés sur le soir ; on enlève le temps de base correspondant
+  const pace=S.settings.pace||1;const tg=hasSteps(i)?(i.steps.find(z=>z.id===sid&&z.done<z.sessions)||i.steps.find(z=>z.done<z.sessions)):null;
+  const left=Math.max(1,tg?tg.sessions-tg.done:i.sessions-i.done);
+  const kBase=Math.min(left,Math.max(1,Math.round((n||1)/pace)));
+  for(let j=0;j<kBase;j++){
     if(hasSteps(i)){st=i.steps.find(z=>z.id===sid&&z.done<z.sessions)||i.steps.find(z=>z.id===sid)||i.steps.find(z=>z.done<z.sessions);if(st)st.done++;syncSteps(i)}else i.done++;
     i.log.push(doneDate||today());i.slog.push(st?st.id:null);
   }
@@ -1261,7 +1290,7 @@ function moveHtml(){const m=ui.move;const id=m.key.split(':')[0],sid=m.key.split
   const pinned=!!(S.pin||{})[m.key];
   return `<h2>Changer la date</h2>${it?`<div class="sub">« ${h(it.title)}${st?' · '+h(st.label):''} »</div>`:''}
     <label class="f" for="moveDate">Jour prévu<input type="date" id="moveDate" value="${m.date}" min="${today()}" onchange="ui.move.date=this.value;renderSheet()"></label>
-    ${full?`<div class="hint warn">Ce jour-là est déjà plein (${fmtMin(n*BLOCK)} prévues sur ${fmtMin(c*BLOCK)}). Tu peux quand même le garder là.</div>`:`<div class="hint">Place ce jour-là : ${fmtMin(n*BLOCK)} sur ${fmtMin(c*BLOCK)}.</div>`}
+    ${full?`<div class="hint warn">Ce jour-là est déjà plein (${fmtMin(baseMin(n))} prévues sur ${fmtMin(baseMin(c))}). Tu peux quand même le garder là.</div>`:`<div class="hint">Place ce jour-là : ${fmtMin(baseMin(n))} sur ${fmtMin(baseMin(c))}.</div>`}
     <div class="btnrow">${pinned?`<button class="btn ghost" onclick="resetMove()">Plan automatique</button>`:'<span></span>'}<button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmMove()">Enregistrer</button></div>`}
 function confirmMove(){const m=ui.move;const v=(document.getElementById('moveDate')||{}).value||m.date;
   if(!v||v<today()){const e=document.getElementById('moveDate');if(e)e.style.borderColor='var(--bad)';return}
