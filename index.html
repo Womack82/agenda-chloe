@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.0.3'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.0.4'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -626,6 +626,22 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 window.addEventListener('pageshow',pullFromServer);
 window.addEventListener('focus',pullFromServer);
 setInterval(()=>{if(document.visibilityState==='visible')pullFromServer()},120000);
+// Mise à jour : si une version plus récente est en ligne, l'app se recharge toute seule (une seule fois par version)
+async function checkNewVersion(){
+  try{
+    if(location.protocol==='file:'||ui.sheet)return;
+    const r=await fetch(location.pathname+'?check='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const m=(await r.text()).match(/APP_VERSION = '([0-9.]+)'/);
+    if(!m||m[1]===APP_VERSION)return;
+    let seen=null;try{seen=sessionStorage.getItem('agendaReloadedTo')}catch(e){}
+    if(seen===m[1])return;
+    try{sessionStorage.setItem('agendaReloadedTo',m[1])}catch(e){}
+    location.replace(location.pathname+'?v='+m[1]+'-'+Date.now());
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkNewVersion()});
+checkNewVersion();
 function authView(){const a=ui.auth;const nm=S.settings.name;
   let body='';
   if(a.step==='sending')body=`<div class="card empty">Connexion en cours…</div>`;
