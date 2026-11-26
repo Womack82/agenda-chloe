@@ -269,6 +269,10 @@ nav .add svg{width:28px;height:28px}
 @media (prefers-reduced-motion: reduce){.sheet{animation:none}}
 button{transition:transform .12s ease,background-color .2s ease,box-shadow .2s ease,opacity .2s ease,color .2s ease}
 button:active{transform:scale(.97)}
+/* Changement d'onglet : la page apparaît en fondu en montant légèrement */
+#app.page-in{animation:page-in .3s cubic-bezier(.22,1,.36,1)}
+@keyframes page-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){#app.page-in{animation:none}}
 .scrim{animation:fadein .2s ease-out}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 .scrim.out{opacity:0;transition:opacity .18s ease}
@@ -472,7 +476,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.1.0'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.1'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -839,7 +843,8 @@ function statusHtml(){
 }
 function renderStatus(){document.querySelectorAll('.status').forEach(e=>e.innerHTML=statusHtml())}
 function typeCls(t){return 't-'+t}
-function go(v){if(v==='today'){ui.selDay=today();ui.calMonth=today().slice(0,7);ui.homeDay=null}ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
+function go(v){const changed=v!==ui.view;if(v==='today'){ui.selDay=today();ui.calMonth=today().slice(0,7);ui.homeDay=null}ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0);if(changed)pageIn()}
+function pageIn(){const a=document.getElementById('app');a.classList.remove('page-in');void a.offsetWidth;a.classList.add('page-in')}
 
 // regroupe les séances identiques (même travail, même jour) : une seule ligne, coche = toutes ses séances
 function groupPlan(ids){const m=new Map();ids.forEach(e=>m.set(e,(m.get(e)||0)+1));return[...m.entries()]}
@@ -1332,7 +1337,7 @@ function delSubject(k){S.settings.subjects.splice(k,1);commit();render()}
 function resetAll(){const st=S.settings;S=defaultState();S.settings=st;ui.confirmReset=false;commit();render()}
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ui.sheet)closeSheet()});
-window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['today','calendar','list','settings'].includes(v)&&v!==ui.view){ui.view=v;render()}});
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(['today','calendar','list','settings'].includes(v)&&v!==ui.view){ui.view=v;render();pageIn()}});
 if(FIREBASE_CONFIG){ui.auth={step:'done'};}
 render();
 if(FIREBASE_CONFIG)initFirebase();else initDb();
