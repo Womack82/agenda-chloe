@@ -472,7 +472,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.8'; // à augmenter à chaque mise à jour
+const APP_VERSION = '2.9'; // à augmenter à chaque mise à jour
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -520,7 +520,7 @@ function defaultState(){return{
 function normalize(s){const d=defaultState();s=Object.assign(d,s||{});s.settings=Object.assign(defaultState().settings,s.settings||{});
   if(Array.isArray(s.settings.subjects))s.settings.subjects=s.settings.subjects.filter(x=>x!=='Éduc. physique');
   s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>i.noRev&&i.due<today()&&!i.completed?Object.assign(i,{completed:true,completedAt:i.due}):i).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i)).map(i=>{if(i.notes&&String(i.notes).trim()){i.title=String(i.title||'').trim()+' – '+String(i.notes).trim();i.notes=''}return i});
-  s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.events=(s.events||[]).filter(e=>e&&e.id);return s}
+  s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.pin=s.pin||{};s.events=(s.events||[]).filter(e=>e&&e.id);return s}
 
 let S=defaultState();
 const LS='agenda-devoirs-v1';
@@ -647,10 +647,17 @@ function minutesLeftToday(){const x=stopFor(today());if(!x)return null;const [hh
 function computePlan(){
   const t=today(),plan={},load={},cap={},over=[];
   const active=S.items.filter(i=>!i.completed);
+  const pins=S.pin||{};
   let end=addDays(t,41);active.forEach(i=>{if(i.due>end)end=i.due});
+  Object.keys(pins).forEach(k=>{if(pins[k]>end)end=pins[k]});
   for(let d=t;d<=end;d=addDays(d,1)){plan[d]=[];load[d]=0;cap[d]=slotsFor(d)}
   S.items.forEach(i=>{load[t]+=doneOn(i,t)});
   const ml=minutesLeftToday();if(ml!=null)cap[t]=Math.min(cap[t],load[t]+Math.floor(ml/blockMin()));
+  // unités à planifier : une par étape (ou le travail entier)
+  const unitsOf=it=>hasSteps(it)?it.steps.map(st=>({key:it.id+':'+st.id,rem:Math.max(0,st.sessions-st.done)})):[{key:it.id,rem:Math.max(0,it.sessions-it.done)}];
+  // travaux déplacés à la main : placés d'abord, à la date choisie
+  const pinnedUnits={};
+  active.forEach(it=>unitsOf(it).forEach(u=>{const pd=pins[u.key];if(!u.rem||!pd||pd<t||!plan[pd])return;for(let k=0;k<u.rem;k++){plan[pd].push(u.key);load[pd]++}pinnedUnits[u.key]=true}));
   const prio={controle:0,projet:1,devoir:2};
   const order=active.slice().sort((a,b)=>a.due<b.due?-1:a.due>b.due?1:prio[a.type]-prio[b.type]);
   for(const it of order){
@@ -658,7 +665,7 @@ function computePlan(){
     const all=[];for(let d=t;d<=last;d=addDays(d,1))all.push(d);
     const dt=doneOn(it,t),rev=it.type==='controle';
     // une « unité » = une étape (ou le travail entier s'il n'est pas découpé)
-    let units=hasSteps(it)?it.steps.map(st=>({key:it.id+':'+st.id,rem:Math.max(0,st.sessions-st.done)})):[{key:it.id,rem:Math.max(0,it.sessions-it.done)}];
+    let units=unitsOf(it).filter(u=>!pinnedUnits[u.key]);
     if(rev)units=units.slice().reverse();
     let bound=rev?last:t; // les étapes restent dans l'ordre
     for(const u of units){
@@ -775,7 +782,7 @@ function taskRow(it,opts){
   const askDay=!opts.done&&((opts.day&&opts.day!==today())||!!lateDay(it.id));
   const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:askDay?`askDoneDay('${it.id}','${st?st.id:''}','${opts.day}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
-    <div class="tmain"><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
+    <div class="tmain" ${opts.move?`onclick="openMove('${it.id}${st?':'+st.id:''}','${opts.day}')" style="cursor:pointer"`:''}><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
       <h4>${h(it.title)}</h4>
       ${st?`<div class="tstep"><span class="stepbadge">Étape ${stepN}/${it.steps.length}</span><span style="${stepOn?'text-decoration:line-through;opacity:.5':''}">${h(st.label)}</span></div>`:''}
       ${it.notes&&!opts.done?`<p class="tnote">${h(it.notes)}</p>`:''}
@@ -913,7 +920,7 @@ function viewCalendar(){
   html+=`</div><div class="legend"></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}<span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div></div>`;
   html+=`<div style="display:flex;justify-content:center;margin-top:12px"><button class="btn ghost" onclick="openEvent(ui.selDay)">${MS('add')}Ajouter une activité</button></div>`;
   const overList=[...new Map(P.over.filter(o=>o.d>=t).map(o=>[o.id,o])).values()];
-  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" style="display:flex;gap:10px;align-items:center"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${n} séance${n>1?'s':''} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
+  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" onclick="openMove('${o.key}','${o.d}')" style="display:flex;gap:10px;align-items:center;cursor:pointer"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${n} séance${n>1?'s':''} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
   // selected day
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
@@ -921,8 +928,9 @@ function viewCalendar(){
   if(d>=t){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
     html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*S.settings.sessionMin):''}</div>`;
+    if(P.load[d]>P.cap[d])html+=`<div class="hint warn">Beaucoup de travail ce jour-là. Touche un travail pour changer sa date.</div>`;
     if(!ids.length)html+=`<div class="card empty">Rien de prévu ce jour-là.</div>`;
-    ids.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:idx[d][k],step:x.st,day:d})});
+    ids.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:idx[d][k],step:x.st,day:d,move:true})});
   }else{
     const doneItems=S.items.filter(i=>(i.log||[]).includes(d));
     if(doneItems.length){html+=`<div class="sub" style="font-weight:800">Travail fait</div>`;doneItems.forEach(i=>html+=`<div class="row ${typeCls(i.type)} done"><div class="main"><span class="title">${h(i.title)}</span><span class="meta">${h(i.subject)}</span></div></div>`)}
@@ -934,7 +942,7 @@ function viewCalendar(){
   html+=`<div class="section"><h2>Travail planifié</h2>`;
   if(laterDays.length)laterDays.forEach(x=>{
     html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*S.settings.sessionMin)}</div>`;
-    P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st,day:x})});
+    P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st,day:x,move:true})});
   });else html+=`<div class="card empty">Aucun travail planifié.</div>`;
   html+=`</div>`;
   return html;
@@ -1076,6 +1084,7 @@ function renderSheet(){
   else if(ui.sheet.kind==='form')inner=formHtml();
   else if(ui.sheet.kind==='after')inner=afterHtml();
   else if(ui.sheet.kind==='event')inner=evHtml();
+  else if(ui.sheet.kind==='move')inner=moveHtml();
   else if(ui.sheet.kind==='pause')inner=pauseHtml();
   const closeBtn=ui.sheet.kind==='pause'?'':`<button class="sheetclose" onclick="closeSheet()" aria-label="Fermer">✕</button>`;
   const oldSheet=root.querySelector('.sheet');const keepScroll=oldSheet?oldSheet.scrollTop:0;
@@ -1195,6 +1204,20 @@ function doSession(id,sid,doneDate){const i=itemById(id);const lv=levelInfo().n;
   commit();ui.sheet=i.completed?null:{kind:'after',id,step:st?st.id:null,stepDone,cheer:cheer()};render();confetti(i.completed||stepDone)}
 function askDoneDay(id,sid,day){ui.doneDay={id,sid:sid||null,day,date:lateDay(id)||today()};ui.sheet={kind:'doneday'};renderSheet()}
 function doneDayHtml(){const d=ui.doneDay;const it=itemById(d.id);return `<h2>À quelle date as-tu fait ce travail ?</h2>${it?`<div class="sub">« ${h(it.title)} »</div>`:''}<label class="f" for="doneDate">Date<input type="date" id="doneDate" value="${d.date}" onchange="ui.doneDay.date=this.value"></label><div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmDoneDay()">Confirmer</button></div>`}
+// Changer le jour d'un travail (ou d'une étape) : la date est mémorisée dans S.pin ; « Plan automatique » l'enlève
+function openMove(key,day){ui.move={key,date:day};ui.sheet={kind:'move'};renderSheet()}
+function moveHtml(){const m=ui.move;const id=m.key.split(':')[0],sid=m.key.split(':')[1];const it=itemById(id);
+  const st=it&&sid&&hasSteps(it)?it.steps.find(z=>z.id===sid):null;
+  const P=computePlan();const n=P.load[m.date]||0,c=P.cap[m.date]||0;const full=m.date>=today()&&n>=c;
+  const pinned=!!(S.pin||{})[m.key];
+  return `<h2>Changer la date</h2>${it?`<div class="sub">« ${h(it.title)}${st?' · '+h(st.label):''} »</div>`:''}
+    <label class="f" for="moveDate">Jour prévu<input type="date" id="moveDate" value="${m.date}" min="${today()}" onchange="ui.move.date=this.value;renderSheet()"></label>
+    ${full?`<div class="hint warn">Ce jour-là est déjà plein (${n} séance${n>1?'s':''} prévues, ${c} possibles). Tu peux quand même le garder là.</div>`:`<div class="hint">Place ce jour-là : ${n}/${c} séances.</div>`}
+    <div class="btnrow">${pinned?`<button class="btn ghost" onclick="resetMove()">Plan automatique</button>`:'<span></span>'}<button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmMove()">Enregistrer</button></div>`}
+function confirmMove(){const m=ui.move;const v=(document.getElementById('moveDate')||{}).value||m.date;
+  if(!v||v<today()){const e=document.getElementById('moveDate');if(e)e.style.borderColor='var(--bad)';return}
+  S.pin=S.pin||{};S.pin[m.key]=v;ui.sheet=null;ui.move=null;commit();render()}
+function resetMove(){const m=ui.move;if(S.pin)delete S.pin[m.key];ui.sheet=null;ui.move=null;commit();render()}
 function confirmDoneDay(){const d=ui.doneDay;const dt=(document.getElementById('doneDate')||{}).value||d.date;ui.sheet=null;doSession(d.id,d.sid,dt)}
 function undoSession(id){const i=itemById(id);const k=(i.log||[]).lastIndexOf(today());if(k<0)return;
   const sid=(i.slog||[])[k];i.log.splice(k,1);if(i.slog)i.slog.splice(k,1);
