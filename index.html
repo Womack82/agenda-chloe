@@ -472,7 +472,9 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '2.9'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.0'; // à augmenter à chaque mise à jour
+// Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
+const BLOCK=15;
 
 /* ---------- dates ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -520,7 +522,20 @@ function defaultState(){return{
 function normalize(s){const d=defaultState();s=Object.assign(d,s||{});s.settings=Object.assign(defaultState().settings,s.settings||{});
   if(Array.isArray(s.settings.subjects))s.settings.subjects=s.settings.subjects.filter(x=>x!=='Éduc. physique');
   s.items=(s.items||[]).filter(i=>i&&i.id&&i.due).map(i=>i.noRev&&i.due<today()&&!i.completed?Object.assign(i,{completed:true,completedAt:i.due}):i).map(i=>Object.assign({log:[],done:0,sessions:1,est0:i.sessions||1,notes:'',subject:'',type:'devoir'},i)).map(i=>{if(i.notes&&String(i.notes).trim()){i.title=String(i.title||'').trim()+' – '+String(i.notes).trim();i.notes=''}return i});
-  s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.pin=s.pin||{};s.events=(s.events||[]).filter(e=>e&&e.id);return s}
+  s.history=s.history||[];s.dayOverride=s.dayOverride||{};s.pin=s.pin||{};s.events=(s.events||[]).filter(e=>e&&e.id);return migrateUnits(s)}
+// Ancien modèle : une séance = la durée « normale » (ex. 45 min). Nouveau : une séance = 15 min. On convertit une fois.
+function migrateUnits(s){if(s.unitMin===BLOCK)return s;
+  const f=presetMinOf(s.settings||{})/BLOCK;const rep=Math.max(1,Math.round(f));
+  const sc=n=>n>0?Math.max(1,Math.round(n*f)):0;
+  (s.items||[]).forEach(i=>{
+    const L=[],SL=[];(i.log||[]).forEach((d,k)=>{const sid=(i.slog||[])[k]??null;for(let j=0;j<rep;j++){L.push(d);SL.push(sid)}});
+    i.log=L;i.slog=SL;
+    if(i.est0)i.est0=sc(i.est0);
+    if(hasSteps(i)){i.steps.forEach(st=>{st.sessions=sc(st.sessions||1);st.done=SL.filter(x=>x===st.id).length});syncSteps(i)}
+    else{i.sessions=i.noRev?0:Math.max(sc(i.sessions||1),L.length);i.done=L.length}
+  });
+  s.history=(s.history||[]).map(x=>Object.assign({},x,{est:Math.round((x.est||0)*f),actual:Math.round((x.actual||0)*f)}));
+  s.unitMin=BLOCK;return s}
 
 let S=defaultState();
 const LS='agenda-devoirs-v1';
@@ -635,7 +650,11 @@ function confirmImport(){const d=ui.pendingImport;ui.pendingImport=null;S=normal
 /* ---------- planner ---------- */
 function eventsOn(d){const w=parse(d).getDay();return S.events.filter(e=>e.kind==='weekly'?(e.weekday===w&&(!e.from||d>=e.from)):e.date===d)}
 function minutesFor(d){const base=S.settings.cap[parse(d).getDay()];const ev=eventsOn(d);if(!ev.length)return base;return Math.min(base,...ev.map(e=>e.free))}
-function blockMin(){return Math.round(S.settings.sessionMin*(S.settings.pace||1)/5)*5}
+function blockMin(){return BLOCK}
+// durée d'un travail Petit / Moyen / Gros (rythme compris)
+function presetMinOf(st){return Math.round((st.sessionMin||30)*(st.pace||1)/5)*5}
+function presetMin(){return presetMinOf(S.settings)}
+function presetSess(type,k){return Math.max(1,Math.round(TYPES[type].sizes[k]*presetMin()/BLOCK))}
 function slotsFor(d){return Math.floor(minutesFor(d)/blockMin())}
 function doneOn(it,d){return (it.log||[]).filter(x=>x===d).length}
 function hasSteps(i){return Array.isArray(i.steps)&&i.steps.length>0}
@@ -774,13 +793,16 @@ function renderStatus(){document.querySelectorAll('.status').forEach(e=>e.innerH
 function typeCls(t){return 't-'+t}
 function go(v){if(v==='today'){ui.selDay=today();ui.calMonth=today().slice(0,7);ui.homeDay=null}ui.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}render();window.scrollTo(0,0)}
 
+// regroupe les séances identiques (même travail, même jour) : une seule ligne, coche = toutes ses séances
+function groupPlan(ids){const m=new Map();ids.forEach(e=>m.set(e,(m.get(e)||0)+1));return[...m.entries()]}
+function groupBy(list,keyFn){const m=new Map();list.forEach(x=>{const k=keyFn(x);if(!m.has(k))m.set(k,[]);m.get(k).push(x)});return[...m.values()]}
 function taskRow(it,opts){
   const st=opts.step||null;const sarg=st?`,'${st.id}'`:'';const sm=blockMin();
   const stepN=st&&hasSteps(it)?it.steps.indexOf(st)+1:0;
-  const sess=opts.session?fmtMin(S.settings.sessionMin)+' à faire':'';
+  const sess=opts.n?fmtMin(opts.n*sm)+' à faire':'';
   const cardDone=opts.done&&(!hasSteps(it)||it.completed);const stepOn=st&&st.done>=st.sessions;const subK=subjKey(it.subject);const sc=subK?SUBJ_COLOR[subK]:null;
   const askDay=!opts.done&&((opts.day&&opts.day!==today())||!!lateDay(it.id));
-  const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}')`:askDay?`askDoneDay('${it.id}','${st?st.id:''}','${opts.day}')`:`doSession('${it.id}'${sarg})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
+  const chk=opts.noChk?'<span class="tchk"></span>':opts.noUndo?`<span class="tchk on">${MS('check')}</span>`:`<button class="tchk ${opts.done?'on':''}" onclick="${opts.done?`undoSession('${it.id}','${st?st.id:''}')`:askDay?`askDoneDay('${it.id}','${st?st.id:''}','${opts.day}',${opts.n||1})`:`doSession('${it.id}','${st?st.id:''}',null,${opts.n||1})`}" aria-label="${opts.done?'Annuler la séance':'Séance faite'}">${MS('check')}</button>`;
   return `<div class="tcard ${typeCls(it.type)} ${cardDone?'done':''}" ${sc?`style="--sc:${sc}"`:''}>${chk}
     <div class="tmain" ${opts.move?`onclick="openMove('${it.id}${st?':'+st.id:''}','${opts.day}')" style="cursor:pointer"`:''}><div class="tbadges">${it.subject?`<span class="spill">${subjIcon(it.subject)}${h(shortSubj(it.subject))}</span>`:''}<span class="tpill">${typeIcon(it.type)}${TYPES[it.type].label}</span>${dueChip(it)}</div>
       <h4>${h(it.title)}</h4>
@@ -849,7 +871,7 @@ function viewToday(){
   const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=' Chloé';
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
   let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div>${todayLeft?'':`<span class="sp" style="flex:none">${MS('schedule')}Fini pour aujourd'hui</span>`}</div><h1>${hello}${nm} ! 👋</h1>
-   <p>${todayLeft?`Encore <strong>${todayLeft} séance${todayLeft>1?'s':''}</strong> prévue${todayLeft>1?'s':''} pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
+   <p>${todayLeft?`Encore <strong>${fmtMin(todayLeft*BLOCK)}</strong> de travail prévu pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
    <div class="spills">${P.over.some(o=>o.d>=t)?'<span class="sp" style="background:var(--ctl-soft);color:var(--bad)">! Surcharge de travail</span>':''}<span class="streak" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
    </section>`;
   if(late.length)html+=`<div class="alert" style="border-left-color:var(--bad);background:var(--ctl-soft)"><b>En retard :</b> ${late.map(i=>h(i.title)).join(', ')}. Si c'est déjà remis, marque-le terminé dans « Mes travaux ».</div>`;
@@ -878,24 +900,24 @@ function viewToday(){
   const planned=d>=t?(P.plan[d]||[]):[];
   const doneHere=[];S.items.forEach(i=>{(i.log||[]).forEach((x,k)=>{if(x===d)doneHere.push({it:i,st:hasSteps(i)?i.steps.find(z=>z.id===(i.slog||[])[k]):null})})});
   const dues=S.items.filter(i=>i.due===d&&!i.completed);
-  html+=`<div class="section"><div class="section-head"><h2>${h(title)}</h2><span class="sub">${planned.length?'~ '+fmtMin(planned.length*S.settings.sessionMin)+' au total':''}</span></div>`;
+  html+=`<div class="section"><div class="section-head"><h2>${h(title)}</h2><span class="sub">${planned.length?'~ '+fmtMin(planned.length*BLOCK)+' au total':''}</span></div>`;
   eventsOn(d).forEach(e=>html+=`<div class="hint">${h(e.label)} : ${freeLabel(e.free)}.</div>`);
   {const x=stopFor(d);if(x){const ml=d===t?minutesLeftToday():null;html+=`<div class="hint">${h(x.why||'Fin des devoirs')} : pas de devoirs après ${h(x.at.replace(':00',' h').replace(':',' h '))}${ml===0?'. C\'est fini pour aujourd\'hui, le reste est déplacé aux jours suivants.':'.'}</div>`}}
   if(dues.length)html+=`<div class="sub" style="font-weight:800">À remettre ce jour-là : ${dues.map(i=>h(i.title)).join(', ')}</div>`;
   if(!planned.length&&!doneHere.length)html+=`<div class="card empty">${d<t?'Rien de fait ce jour-là.':'Rien de prévu. Profites-en !'}</div>`;
   const rows=[];
-  doneHere.forEach(x=>rows.push(taskRow(x.it,{done:true,noUndo:d!==t,step:x.st})));
-  planned.forEach((e,k)=>{const x=ent(e);rows.push(taskRow(x.it,{session:idx[d][k],step:x.st}))});
+  groupBy(doneHere,x=>x.it.id+':'+(x.st?x.st.id:'')).forEach(g=>rows.push({html:taskRow(g[0].it,{done:true,noUndo:d!==t,step:g[0].st,n:g.length}),m:0}));
+  groupPlan(planned).forEach(([e,n])=>{const x=ent(e);rows.push({html:taskRow(x.it,{step:x.st,n}),m:n*sm})});
   // pause seulement après au moins 1 h de travail d'affilée, d'une durée proportionnelle (≈ 10 min par heure, 20 min max)
-  let acc=0;rows.forEach((r,k)=>{html+=r;acc+=sm;
+  let acc=0;rows.forEach((r,k)=>{html+=r.html;acc+=r.m;
     if(d===t&&acc>=60&&k<rows.length-1){const dur=Math.max(5,Math.min(20,Math.round(acc/6/5)*5));
       const ideas=['Lève les yeux de l\'écran, bois un verre d\'eau !','Bouge un peu, étire-toi.','Prends une collation.','Mets ta chanson préférée.'];
       html+=`<button class="pausecard" onclick="openPause(${dur})"><span class="pic">☕</span><span class="ptx"><b>Pause conseillée (${dur} min) <i class="chill">Chill</i></b><span>${ideas[k%ideas.length]}</span></span>${MS('chevron_right')}</button>`;acc=0}});
-  if(d>t&&planned.length)html+=`<div class="sub">Tu peux cocher une séance en avance si tu la fais aujourd'hui.</div>`;
+  if(d>t&&planned.length)html+=`<div class="sub">Tu peux cocher ce travail en avance si tu le fais aujourd'hui.</div>`;
   html+=`</div>`;
   // upcoming deadlines
   const tomorrow=addDays(t,1),tplan=P.plan[tomorrow]||[];
-  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;tplan.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:sessionIndexMap(P)[tomorrow][k],step:x.st,day:tomorrow})});html+=`</div>`}
+  if(tplan.length){html+=`<div class="section"><div class="section-head"><h2>À anticiper</h2><span class="sub">demain</span></div>`;groupPlan(tplan).forEach(([e,n])=>{const x=ent(e);html+=taskRow(x.it,{step:x.st,day:tomorrow,n})});html+=`</div>`}
   return html;
 }
 
@@ -920,17 +942,17 @@ function viewCalendar(){
   html+=`</div><div class="legend"></div><div class="legend2">${['devoir','controle','projet'].map(t=>`<span><span class="cchip lg"><img src="img/w-${t}.png" alt=""></span>${t==='projet'?'Projet':TYPES[t].label}</span>`).join('')}<span><i style="width:0;height:0;border-left:8px solid transparent;border-top:8px solid var(--warn)"></i>Activité</span></div></div>`;
   html+=`<div style="display:flex;justify-content:center;margin-top:12px"><button class="btn ghost" onclick="openEvent(ui.selDay)">${MS('add')}Ajouter une activité</button></div>`;
   const overList=[...new Map(P.over.filter(o=>o.d>=t).map(o=>[o.id,o])).values()];
-  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" onclick="openMove('${o.key}','${o.d}')" style="display:flex;gap:10px;align-items:center;cursor:pointer"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${n} séance${n>1?'s':''} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
+  if(overList.length){html+=`<div class="section"><h2><span style="color:var(--bad)">!</span> Travail en trop</h2>`;overList.forEach(o=>{const n=P.over.filter(x=>x.id===o.id).length;html+=`<div class="card" onclick="openMove('${o.key}','${o.d}')" style="display:flex;gap:10px;align-items:center;cursor:pointer"><b style="color:var(--bad);font-size:20px">!</b><div><b>${h(o.title)}</b><div class="sub">${fmtMin(n*BLOCK)} en trop, à faire la veille de la remise (${h(longDate(o.d))})</div></div></div>`});html+=`</div>`}
   // selected day
   const d=ui.selDay;
   const dues=S.items.filter(i=>i.due===d);
   html+=`<div class="section"><h2>${h(longDate(d).replace(/^./,c=>c.toUpperCase()))}</h2>`;
   if(d>=t){
     const ids=P.plan[d]||[];const idx=sessionIndexMap(P);
-    html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*S.settings.sessionMin):''}</div>`;
+    html+=`<div class="sub" style="font-weight:800">Travail prévu ${ids.length?'· '+fmtMin(ids.length*BLOCK):''}</div>`;
     if(P.load[d]>P.cap[d])html+=`<div class="hint warn">Beaucoup de travail ce jour-là. Touche un travail pour changer sa date.</div>`;
     if(!ids.length)html+=`<div class="card empty">Rien de prévu ce jour-là.</div>`;
-    ids.forEach((e,k)=>{const x=ent(e);html+=taskRow(x.it,{session:idx[d][k],step:x.st,day:d,move:true})});
+    groupPlan(ids).forEach(([e,n])=>{const x=ent(e);html+=taskRow(x.it,{step:x.st,day:d,move:true,n})});
   }else{
     const doneItems=S.items.filter(i=>(i.log||[]).includes(d));
     if(doneItems.length){html+=`<div class="sub" style="font-weight:800">Travail fait</div>`;doneItems.forEach(i=>html+=`<div class="row ${typeCls(i.type)} done"><div class="main"><span class="title">${h(i.title)}</span><span class="meta">${h(i.subject)}</span></div></div>`)}
@@ -941,8 +963,8 @@ function viewCalendar(){
   const laterDays=Object.keys(P.plan).filter(x=>x>=t&&x!==d&&(P.plan[x]||[]).length).sort();
   html+=`<div class="section"><h2>Travail planifié</h2>`;
   if(laterDays.length)laterDays.forEach(x=>{
-    html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*S.settings.sessionMin)}</div>`;
-    P.plan[x].forEach((e,k)=>{const y=ent(e);html+=taskRow(y.it,{session:idxAll[x][k],step:y.st,day:x,move:true})});
+    html+=`<div class="sub" style="font-weight:800">${h(longDate(x).replace(/^./,c=>c.toUpperCase()))} · ${fmtMin(P.plan[x].length*BLOCK)}</div>`;
+    groupPlan(P.plan[x]).forEach(([e,n])=>{const y=ent(e);html+=taskRow(y.it,{step:y.st,day:x,move:true,n})});
   });else html+=`<div class="card empty">Aucun travail planifié.</div>`;
   html+=`</div>`;
   return html;
@@ -956,7 +978,7 @@ function listRow(i){
   return `<button class="ant ${typeCls(i.type)} ${i.completed?'done':''}" onclick="openEdit('${i.id}')">
     <span class="aic">${subjIcon(i.subject)}</span>
     <span class="atx"><b>${h(i.title)}</b><span>${h(i.subject||'Sans matière')} • ${TYPES[i.type].label}${stepTxt}</span>${i.completed?'':`<span class="prog"><i style="width:${pct}%"></i></span>`}</span>
-    <span class="adt"><b class="${late?'late':i.type==='controle'?'exam':''}">${h(dl)}</b><span>${i.noRev?'Pas de révision':i.done+'/'+i.sessions+' séances'}</span></span></button>`;
+    <span class="adt"><b class="${late?'late':i.type==='controle'?'exam':''}">${h(dl)}</b><span>${i.noRev?'Pas de révision':fmtMin(i.done*BLOCK)+' sur '+fmtMin(i.sessions*BLOCK)}</span></span></button>`;
 }
 function viewList(){
   const act=S.items.filter(i=>!i.completed).sort((a,b)=>a.due<b.due?-1:1);
@@ -990,7 +1012,7 @@ function viewSettings(){
    <div><b>Contrôle :</b> des révisions courtes dans les jours avant le contrôle, une par soir si possible. Réviser en plusieurs fois aide à mieux retenir.</div>
    <div><b>Projet de groupe :</b> réparti régulièrement jusqu'à la date de remise.</div>
    <div><b>Jamais plus</b> que le temps que tu as indiqué pour chaque soir, en tenant compte de tes activités (sport, sleepover, amis…). Si ça ne rentre pas, l'app te prévient.</div>
-   <div><b>Si tu manques une séance,</b> elle est automatiquement replacée sur les jours suivants.</div>
+   <div><b>Si tu ne fais pas une partie du travail prévu,</b> elle est automatiquement replacée sur les jours suivants.</div>
    <div><b>Avec le temps,</b> l'app compare tes estimations avec le temps réel par matière et te le dit quand tu ajoutes un travail.</div>
   </div></div>
   <div class="section"><h2>Sauvegarde</h2><div class="card stack">
@@ -1096,12 +1118,12 @@ function closeSheetNow(){if(ui.pause){clearInterval(pauseTick);ui.pause=null}ui.
 
 function openAdd(){
   const d=addDays(today(),2);
-  ui.form={id:null,title:'',subject:'',type:'devoir',due:d,size:0,sessions:1,notes:'',custom:false,confirmDel:false,steps:[]};
+  ui.form={id:null,title:'',subject:'',type:'devoir',due:d,size:0,sessions:presetSess('devoir',0),notes:'',custom:false,confirmDel:false,steps:[]};
   ui.sheet={kind:'form'};renderSheet();
   setTimeout(()=>{const e=document.getElementById('fTitle');if(e)e.focus()},60);
 }
 function openEdit(id){const i=itemById(id);if(!i)return;
-  const sz=TYPES[i.type].sizes.indexOf(i.sessions);
+  const sz=TYPES[i.type].sizes.findIndex((x,k)=>presetSess(i.type,k)===i.sessions);
   ui.form={id:i.id,title:i.title,subject:i.subject,type:i.type,due:i.due,size:sz,sessions:i.sessions,notes:i.notes||'',custom:sz<0,confirmDel:false,steps:hasSteps(i)?i.steps.map(z=>Object.assign({},z)):[]};
   ui.sheet={kind:'form'};renderSheet()}
 function formHtml(){
@@ -1118,17 +1140,17 @@ function formHtml(){
    <div class="datebar"><span class="l"><span class="ib">${MS('calendar_month')}</span>Choisir une date précise</span><input type="date" id="fDue" value="${f.due}" onchange="setF('due',this.value)" aria-label="Date"></div></div>
   ${stepsHtml()}
   ${f.steps.length?'':`<div class="fgroup"><span class="flabel">${f.type==='controle'?'Combien de matière à réviser ?':'Taille estimée de l\'effort'}<small style="color:var(--ok)">${MS('speed')}Adapté à ton rythme</small></span>
-   <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*S.settings.sessionMin)}</small></button>`).join('')}
+   <div class="seg c4">${SIZES.map((s,k)=>`<button class="opt ${!f.custom&&f.size===k?'on':''}" onclick="setSize(${k})">${SIZE_ICONS[k]}${s}<small>${fmtMin(T.sizes[k]*presetMin())}</small></button>`).join('')}
    <button class="opt ${(f.custom||f.noRev)?'on':''}" onclick="${f.type==='controle'?'setNoRev()':'setSize(-1)'}"><svg class="szi" viewBox="0 0 32 32" aria-hidden="true"><rect x="9" y="4" width="14" height="22" rx="2" class="pg" stroke-dasharray="3 2.5"/><path d="M16 11v8M12 15h8"/></svg>${f.type==='controle'?'Pas de révision<small>rien à faire</small>':'Autre<small>à choisir</small>'}</button></div></div>`}`;
-  if(f.custom&&!f.steps.length){const cm=f.cm||(f.sessions*S.settings.sessionMin);const cH=Math.floor(cm/60),cMn=cm%60;html+=`<div class="fgroup"><span class="flabel">Durée du travail</span><div class="hm"><input type="number" id="cH" inputmode="numeric" min="0" max="20" value="${cH}" aria-label="Heures" onchange="setCM()"><span>h</span><input type="number" id="cM" inputmode="numeric" min="0" max="59" step="5" value="${cMn}" aria-label="Minutes" onchange="setCM()"><span>min</span></div></div>`}
+  if(f.custom&&!f.steps.length){const cm=f.cm||(f.sessions*BLOCK);const cH=Math.floor(cm/60),cMn=cm%60;html+=`<div class="fgroup"><span class="flabel">Durée du travail</span><div class="hm"><input type="number" id="cH" inputmode="numeric" min="0" max="20" value="${cH}" aria-label="Heures" onchange="setCM()"><span>h</span><input type="number" id="cM" inputmode="numeric" min="0" max="59" step="5" value="${cMn}" aria-label="Minutes" onchange="setCM()"><span>min</span></div></div>`}
   // hints
   const r=f.subject?ratioFor(f.subject):null;
   if(r&&Math.abs(r-1)>=0.2)html+=`<div class="hint">En ${h(f.subject)}, tes travaux ont pris en moyenne <b>${r>1?'plus':'moins'} de temps</b> que prévu (×${r.toFixed(1).replace('.',',')}). ${r>1?'Choisis peut-être une taille de plus.':'Une taille de moins suffira peut-être.'}</div>`;
   const fSess=f.steps.length?f.steps.reduce((a,x)=>a+x.sessions,0):f.sessions,fDone=f.steps.length?f.steps.reduce((a,x)=>a+x.done,0):(it?it.done:0);
   if(f.due){const P=computePlanExcluding(f.id);const free=freeSlotsBefore(f.due,P);const need=Math.max(0,fSess-fDone);
     if(need>free)html+=`<div class="hint warn">D'ici là, il reste environ ${fmtMin(free*sm)} de libre et ce travail demande ${fmtMin(need*sm)}. Certains soirs vont déborder : commence dès que possible ou ajoute du temps dans le calendrier.</div>`;
-    else if(f.type==='controle'&&!f.steps.length)html+=`<div class="hint">Les ${need} révisions seront placées dans les soirs avant le contrôle.</div>`;}
-  if(editing&&it&&!it.noRev){html+=`<div class="card stack" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>${it.done}/${it.sessions} séances faites</b></div><div class="btnrow">
+    else if(f.type==='controle'&&!f.steps.length)html+=`<div class="hint">Les révisions (${fmtMin(need*sm)}) seront placées dans les soirs avant le contrôle.</div>`;}
+  if(editing&&it&&!it.noRev){html+=`<div class="card stack" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>${fmtMin(it.done*BLOCK)} faites sur ${fmtMin(it.sessions*BLOCK)}</b></div><div class="btnrow">
     ${it.completed?`<button class="btn ghost" onclick="reopen('${it.id}')">Remettre à faire</button>`:`<button class="btn ghost" onclick="finishItem('${it.id}')">C'est terminé ✓</button>`}</div></div>`}
   html+=`<button class="btn full" onclick="saveForm()">${MS(editing?'save':'calendar_add_on')}${editing?'Enregistrer':'Planifier automatiquement'}</button>`;
   if(editing)html+=f.confirmDel?`<div class="btnrow"><button class="btn ghost" onclick="ui.form.confirmDel=false;renderSheet()">Garder</button><button class="btn danger" onclick="deleteItem('${f.id}')">Oui, supprimer</button></div>`
@@ -1140,13 +1162,13 @@ function stepsHtml(){const f=ui.form,sm=blockMin();
   let html=`<div class="card stack ${typeCls(f.type)}" style="box-shadow:none;border:1.5px solid var(--line)"><div><b>Découper en étapes</b> <span class="sub">(facultatif)</span><div class="sub">Ex. « 3 pages d'exercices » et « lire le texte » : chaque étape sera placée sur un soir différent, dans l'ordre.</div></div>`;
   if(f.steps.length){html+=`<div class="steps">`;f.steps.forEach((st,k)=>{const ok=st.done>=st.sessions;
     html+=`<div class="stepr">${ok?`<button class="num ok" style="border:0;padding:0;font:inherit" onclick="stepUndo(${k})" aria-label="Remettre cette étape à faire">✓</button>`:`<span class="num">${k+1}</span>`}<input type="text" id="st_${k}" value="${h(st.label)}" placeholder="Étape ${k+1}" oninput="ui.form.steps[${k}].label=this.value" aria-label="Nom de l'étape ${k+1}">
-      <span class="ctl"><button onclick="stepBump(${k},-1)" aria-label="Moins de temps">−</button><b>${fmtMin(st.sessions*S.settings.sessionMin)}</b><button onclick="stepBump(${k},1)" aria-label="Plus de temps">+</button></span>
+      <span class="ctl"><button onclick="stepBump(${k},-1)" aria-label="Moins de temps">−</button><b>${fmtMin(st.sessions*BLOCK)}</b><button onclick="stepBump(${k},1)" aria-label="Plus de temps">+</button></span>
       <span class="tools">${k>0?`<button onclick="stepMove(${k},-1)">↑ Monter</button>`:''}${k<f.steps.length-1?`<button onclick="stepMove(${k},1)">↓ Descendre</button>`:''}<button onclick="stepDel(${k})">✕ Retirer</button></span></div>`});
-    html+=`</div><div class="sub" style="font-weight:800">Total : ${fmtMin(f.steps.reduce((a,x)=>a+x.sessions,0)*S.settings.sessionMin)}</div>`}
+    html+=`</div><div class="sub" style="font-weight:800">Total : ${fmtMin(f.steps.reduce((a,x)=>a+x.sessions,0)*BLOCK)}</div>`}
   html+=`<div class="chips">${STEP_IDEAS[f.type].map(x=>`<button class="opt" style="padding:6px 10px" onclick="stepAdd(${h(JSON.stringify(x))})">+ ${h(x)}</button>`).join('')}<button class="opt" style="padding:6px 10px" onclick="stepAdd('')">+ Autre étape</button></div></div>`;
   return html}
 function syncSteps_(){(ui.form.steps||[]).forEach((st,k)=>{const e=document.getElementById('st_'+k);if(e)st.label=e.value})}
-function stepAdd(label){syncInputs();ui.form.steps.push({id:uid(),label,sessions:1,done:0});renderSheet();if(!label)setTimeout(()=>{const e=document.getElementById('st_'+(ui.form.steps.length-1));if(e)e.focus()},50)}
+function stepAdd(label){syncInputs();ui.form.steps.push({id:uid(),label,sessions:3,done:0});renderSheet();if(!label)setTimeout(()=>{const e=document.getElementById('st_'+(ui.form.steps.length-1));if(e)e.focus()},50)}
 function stepUndo(k){if(!window.confirm('Remettre cette étape à faire ? Elle ne sera plus marquée comme faite.'))return;syncInputs();const st=ui.form.steps[k];if(st)st.done=0;renderSheet()}
 function stepBump(k,n){syncInputs();const st=ui.form.steps[k];st.sessions=Math.max(Math.max(1,st.done),Math.min(10,st.sessions+n));renderSheet()}
 function stepMove(k,n){syncInputs();const a=ui.form.steps;[a[k],a[k+n]]=[a[k+n],a[k]];renderSheet()}
@@ -1156,7 +1178,7 @@ function syncInputs(){syncSteps_();const t=document.getElementById('fTitle');if(
 function setF(k,v){syncInputs();ui.form[k]=v;if(k==='subject')ui.form.err=null;if(k==='type')ui.form.noRev=false;if(k==='type'&&!ui.form.custom){ui.form.sessions=TYPES[v].sizes[Math.max(0,ui.form.size)]}renderSheet()}
 function setNoRev(){syncInputs();const f=ui.form;f.noRev=true;f.custom=false;f.size=-1;f.sessions=0;renderSheet()}
 function setCM(){const H=document.getElementById('cH'),M=document.getElementById('cM');const f=ui.form;f.custom=true;f.size=-1;f.noRev=false;f.cm=Math.max(5,(+H.value||0)*60+(+M.value||0));f.sessions=Math.max(1,Math.round(f.cm/blockMin()));renderSheet()}
-function setSize(k){syncInputs();const f=ui.form;f.noRev=false;if(k<0){f.custom=true}else{f.custom=false;f.size=k;f.sessions=TYPES[f.type].sizes[k]}renderSheet()}
+function setSize(k){syncInputs();const f=ui.form;f.noRev=false;if(k<0){f.custom=true}else{f.custom=false;f.size=k;f.sessions=presetSess(f.type,k)}renderSheet()}
 function bump(n){syncInputs();ui.form.sessions=Math.max(1,Math.min(20,ui.form.sessions+n));renderSheet()}
 function saveForm(){
   syncInputs();const f=ui.form;
@@ -1195,14 +1217,18 @@ function finishItem(id,sid){const i=itemById(id);
 function reopen(id){const i=itemById(id);uncomplete(i);if(i.done>=i.sessions){if(hasSteps(i)){i.steps[i.steps.length-1].sessions++;syncSteps(i)}else i.sessions=i.done+1}commit();closeSheet()}
 
 /* session done */
-function doSession(id,sid,doneDate){const i=itemById(id);const lv=levelInfo().n;
+function doSession(id,sid,doneDate,n){const i=itemById(id);const lv=levelInfo().n;
   i.log=i.log||[];i.slog=i.slog||[];while(i.slog.length<i.log.length)i.slog.push(null);
-  let st=null;if(hasSteps(i)){st=i.steps.find(z=>z.id===sid)||i.steps.find(z=>z.done<z.sessions);if(st)st.done++;syncSteps(i)}else i.done++;
-  i.log.push(doneDate||today());i.slog.push(st?st.id:null);
+  let st=null;
+  // coche d'un travail : toutes les séances prévues ce jour-là pour ce travail (ou cette étape)
+  for(let j=0;j<Math.max(1,n|0);j++){
+    if(hasSteps(i)){st=i.steps.find(z=>z.id===sid&&z.done<z.sessions)||i.steps.find(z=>z.id===sid)||i.steps.find(z=>z.done<z.sessions);if(st)st.done++;syncSteps(i)}else i.done++;
+    i.log.push(doneDate||today());i.slog.push(st?st.id:null);
+  }
   const stepDone=st&&st.done>=st.sessions;
   if(i.done>=i.sessions){completeItem(i)}
   commit();ui.sheet=i.completed?null:{kind:'after',id,step:st?st.id:null,stepDone,cheer:cheer()};render();confetti(i.completed||stepDone)}
-function askDoneDay(id,sid,day){ui.doneDay={id,sid:sid||null,day,date:lateDay(id)||today()};ui.sheet={kind:'doneday'};renderSheet()}
+function askDoneDay(id,sid,day,n){ui.doneDay={id,sid:sid||null,day,n:n||1,date:lateDay(id)||today()};ui.sheet={kind:'doneday'};renderSheet()}
 function doneDayHtml(){const d=ui.doneDay;const it=itemById(d.id);return `<h2>À quelle date as-tu fait ce travail ?</h2>${it?`<div class="sub">« ${h(it.title)} »</div>`:''}<label class="f" for="doneDate">Date<input type="date" id="doneDate" value="${d.date}" onchange="ui.doneDay.date=this.value"></label><div class="btnrow"><button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmDoneDay()">Confirmer</button></div>`}
 // Changer le jour d'un travail (ou d'une étape) : la date est mémorisée dans S.pin ; « Plan automatique » l'enlève
 function openMove(key,day){ui.move={key,date:day};ui.sheet={kind:'move'};renderSheet()}
@@ -1212,20 +1238,23 @@ function moveHtml(){const m=ui.move;const id=m.key.split(':')[0],sid=m.key.split
   const pinned=!!(S.pin||{})[m.key];
   return `<h2>Changer la date</h2>${it?`<div class="sub">« ${h(it.title)}${st?' · '+h(st.label):''} »</div>`:''}
     <label class="f" for="moveDate">Jour prévu<input type="date" id="moveDate" value="${m.date}" min="${today()}" onchange="ui.move.date=this.value;renderSheet()"></label>
-    ${full?`<div class="hint warn">Ce jour-là est déjà plein (${n} séance${n>1?'s':''} prévues, ${c} possibles). Tu peux quand même le garder là.</div>`:`<div class="hint">Place ce jour-là : ${n}/${c} séances.</div>`}
+    ${full?`<div class="hint warn">Ce jour-là est déjà plein (${fmtMin(n*BLOCK)} prévues sur ${fmtMin(c*BLOCK)}). Tu peux quand même le garder là.</div>`:`<div class="hint">Place ce jour-là : ${fmtMin(n*BLOCK)} sur ${fmtMin(c*BLOCK)}.</div>`}
     <div class="btnrow">${pinned?`<button class="btn ghost" onclick="resetMove()">Plan automatique</button>`:'<span></span>'}<button class="btn ghost" onclick="closeSheet()">Annuler</button><button class="btn" onclick="confirmMove()">Enregistrer</button></div>`}
 function confirmMove(){const m=ui.move;const v=(document.getElementById('moveDate')||{}).value||m.date;
   if(!v||v<today()){const e=document.getElementById('moveDate');if(e)e.style.borderColor='var(--bad)';return}
   S.pin=S.pin||{};S.pin[m.key]=v;ui.sheet=null;ui.move=null;commit();render()}
 function resetMove(){const m=ui.move;if(S.pin)delete S.pin[m.key];ui.sheet=null;ui.move=null;commit();render()}
-function confirmDoneDay(){const d=ui.doneDay;const dt=(document.getElementById('doneDate')||{}).value||d.date;ui.sheet=null;doSession(d.id,d.sid,dt)}
-function undoSession(id){const i=itemById(id);const k=(i.log||[]).lastIndexOf(today());if(k<0)return;
-  const sid=(i.slog||[])[k];i.log.splice(k,1);if(i.slog)i.slog.splice(k,1);
-  if(hasSteps(i)){const st=i.steps.find(z=>z.id===sid)||i.steps.slice().reverse().find(z=>z.done>0);if(st)st.done=Math.max(0,st.done-1);syncSteps(i)}else i.done=Math.max(0,i.done-1);
+function confirmDoneDay(){const d=ui.doneDay;const dt=(document.getElementById('doneDate')||{}).value||d.date;ui.sheet=null;doSession(d.id,d.sid,dt,d.n)}
+function undoSession(id,sid){const i=itemById(id);const L=i.log||[];
+  // annule toutes les séances cochées aujourd'hui pour ce travail (ou cette étape)
+  const idx=L.map((d,k)=>k).filter(k=>L[k]===today()&&(!hasSteps(i)||!sid||(i.slog||[])[k]===sid));if(!idx.length)return;
+  idx.slice().reverse().forEach(k=>{const s=(i.slog||[])[k];i.log.splice(k,1);if(i.slog)i.slog.splice(k,1);
+    if(hasSteps(i)){const st=i.steps.find(z=>z.id===s);if(st)st.done=Math.max(0,st.done-1)}else i.done=Math.max(0,i.done-1)});
+  if(hasSteps(i))syncSteps(i);
   if(i.completed&&i.done<i.sessions){uncomplete(i)}commit();render()}
 function afterHtml(){const i=itemById(ui.sheet.id);if(!i)return'';const rem=i.sessions-i.done;
   const lu='';
-  if(i.completed)return `<h2>🎉 « ${h(i.title)} » est terminé !</h2>${lu}<div class="sub">${i.done} séance${i.done>1?'s':''} au total.</div>
+  if(i.completed)return `<h2>🎉 « ${h(i.title)} » est terminé !</h2>${lu}<div class="sub">${fmtMin(i.done*BLOCK)} de travail au total.</div>
     <div class="btnrow"><button class="btn ghost" onclick="needMore('${i.id}')">En fait, il m'en faut encore une</button><button class="btn" onclick="closeSheet()">Super</button></div>`;
   const sst=ui.sheet.step&&hasSteps(i)?i.steps.find(z=>z.id===ui.sheet.step):null;
   const stepMsg=sst&&ui.sheet.stepDone?`<div class="hint"><span style="color:var(--ok);display:inline-flex;vertical-align:middle;margin-right:4px">${MS('check_circle')}</span>Étape « ${h(sst.label)} » terminée ! Encore ${i.steps.filter(z=>z.done<z.sessions).length} étape${i.steps.filter(z=>z.done<z.sessions).length>1?'s':''}.</div>`:'';
