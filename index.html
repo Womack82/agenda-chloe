@@ -398,6 +398,13 @@ h2{font-size:17px;font-weight:700;line-height:24px}
 .cnt{padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:800;font-family:var(--body)}
 .section-head h2{display:flex;align-items:center;gap:8px}
 .section-head .sub{font-weight:800;font-size:12px}
+.done-sum{font-family:var(--display);font-weight:700;font-size:20px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.done-sum::-webkit-details-marker{display:none}
+.done-sum::before{content:'';width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid currentColor;transition:transform .3s ease;flex:none;margin-right:2px}
+details[open]>.done-sum::before{transform:rotate(180deg)}
+details[open]>.stack{animation:done-open .35s ease both}
+@keyframes done-open{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.done-sum::before,details[open]>.stack{transition:none;animation:none}}
 /* nav */
 nav{background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:0;box-shadow:0 -2px 12px rgba(15,28,49,.05)}
 nav button{font-size:11px;padding:8px 0 4px;gap:3px}
@@ -476,7 +483,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.1.1'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.2'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -1041,8 +1048,8 @@ function viewList(){
   act.forEach(i=>html+=listRow(i));
   html+=`</div>`;
   const acts=S.events.filter(e=>e.kind!=='weekly'&&e.date>=today()).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  if(acts.length){html+=`<div class="section"><h2>Activité</h2>`;acts.forEach(x=>{html+=`<button class="row tap" onclick="openEventEdit('${x.id}')"><div class="main"><span class="title">${h(x.label)}</span><span class="meta">${h(longDate(x.date))}</span></div></button>`});html+=`</div>`}
-  if(done.length){html+=`<details class="section" style="margin-top:22px"><summary style="font-family:var(--display);font-weight:700;font-size:20px;cursor:pointer;list-style:none">Terminés (${done.length})</summary><div class="stack" style="margin-top:10px">`;done.forEach(i=>html+=listRow(i));html+=`</div></details>`}
+  if(acts.length){html+=`<div class="section"><h2>Activité(s)</h2>`;acts.forEach(x=>{html+=`<button class="row tap" onclick="openEventEdit('${x.id}')"><div class="main"><span class="title">${h(x.label)}</span><span class="meta">${h(longDate(x.date))}</span></div></button>`});html+=`</div>`}
+  if(done.length){html+=`<details class="section" style="margin-top:22px"><summary class="done-sum">Terminés (${done.length})</summary><div class="stack" style="margin-top:10px">`;done.forEach(i=>html+=listRow(i));html+=`</div></details>`}
   return html;
 }
 
