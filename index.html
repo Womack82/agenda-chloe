@@ -319,7 +319,7 @@ h2{font-size:17px;font-weight:700;line-height:24px}
 /* 2-week calendar */
 .cal2{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:10px}
 .c2head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.c2head .m{display:flex;align-items:center;gap:6px;font-family:var(--display);font-weight:700;font-size:17px}
+.c2head .m{display:flex;align-items:center;gap:6px;font-family:var(--display);font-weight:700;font-size:17px;white-space:nowrap}
 .c2head .m .ms{color:var(--accent)}
 .wkl{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);padding:0 2px}
 .wkl.cur{color:var(--accent)}
@@ -484,7 +484,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.1.8'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.9'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -943,7 +943,7 @@ function viewToday(){
   // two-week grid (remises seulement)
   const endD=addDays(monday,11);const m1=parse(monday),m2=parse(endD);
   const mlabel=m1.getMonth()===m2.getMonth()?MOIS[m1.getMonth()]+' '+m1.getFullYear():MOIS[m1.getMonth()]+' – '+MOIS[m2.getMonth()]+' '+m2.getFullYear();
-  html+=`<section class="cal2"><div class="c2head"><span class="m">${MS('calendar_today')}${h(mlabel.replace(/^./,c=>c.toUpperCase()))}</span><span class="eyebrow" style="font-size:11px">Vue 2 semaines</span></div>`;
+  html+=`<section class="cal2"><div class="c2head"><span class="m">${MS('calendar_today')}${h(mlabel.replace(/^./,c=>c.toUpperCase()))}</span></div>`;
   const WD=['Lun','Mar','Mer','Jeu','Ven'];
   for(let w=0;w<2;w++){
     html+=`<div class="wkl ${w===0&&!wkend?'cur':''}">${wkend?(w===0?'Semaine prochaine':'Dans deux semaines'):(w===0?'Cette semaine':'Semaine prochaine')}</div><div class="grid g5">`;
