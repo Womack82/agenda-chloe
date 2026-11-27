@@ -484,7 +484,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.1.7'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.8'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -966,7 +966,6 @@ function viewToday(){
   const dues=S.items.filter(i=>i.due===d&&!i.completed);
   html+=`<div class="section"><div class="section-head"><h2>${h(title)}</h2><span class="sub">${planned.length?'~ '+fmtMin(baseMin(planned.length))+' au total':''}</span></div>`;
   eventsOn(d).forEach(e=>html+=`<div class="hint">${h(e.label)} : ${freeLabel(e.free)}.</div>`);
-  {const x=stopFor(d);if(x){const ml=d===t?minutesLeftToday():null;html+=`<div class="hint">${h(x.why||'Fin des devoirs')} : pas de devoirs après ${h(x.at.replace(':00',' h').replace(':',' h '))}${ml===0?'. C\'est fini pour aujourd\'hui, le reste est déplacé aux jours suivants.':'.'}</div>`}}
   if(dues.length)html+=`<div class="sub" style="font-weight:800">À remettre ce jour-là : ${dues.map(i=>h(i.title)).join(', ')}</div>`;
   if(!planned.length&&!doneHere.length)html+=`<div class="card empty">${d<t?'Rien de fait ce jour-là.':'Rien de prévu. Profites-en !'}</div>`;
   const rows=[];
