@@ -484,7 +484,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.1.5'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.6'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -736,6 +736,9 @@ function computePlan(){
     let last=addDays(it.due,-1);if(last<t)last=t;
     const all=[];for(let d=t;d<=last;d=addDays(d,1))all.push(d);
     const dt=doneOn(it,t),rev=it.type==='controle';
+    // devoir : à la suite du travail déjà prévu (le dernier jour déjà occupé par un autre travail)
+    const otherDays=Object.keys(plan).filter(d=>plan[d].some(p=>p.split(':')[0]!==it.id)).sort();
+    const tail=otherDays.length?otherDays[otherDays.length-1]:null;
     // une « unité » = une étape (ou le travail entier s'il n'est pas découpé)
     let units=unitsOf(it).filter(u=>!pinnedUnits[u.key]);
     if(rev)units=units.slice().reverse();
@@ -757,6 +760,7 @@ function computePlan(){
         if(it.type==='controle')s+=(n-1-j)*1.5; // révisions dans les jours avant le contrôle
         else if(it.type==='devoir')s+=j*1.5;    // devoir : le plus tôt possible
         else s+=j*0.4;                          // projet : réparti
+        if(it.type==='devoir'&&tail!==null&&d<=tail)s+=200+Math.round((parse(tail)-parse(d))/864e5); // pas avant le travail déjà prévu
         return s};
       // 1) le travail (ou l'étape) entier sur un même jour qui a assez de temps libre : jamais un bout de 15 min dans un trou
       const whole=cand.filter(d=>u.rem>0&&cap[d]-load[d]>=u.rem);
