@@ -484,7 +484,7 @@ const FIREBASE_CONFIG = {
 };
 */
 const AGENDA_ID = 'chloe'; // nom du document partagé dans Firestore
-const APP_VERSION = '3.1.6'; // à augmenter à chaque mise à jour
+const APP_VERSION = '3.1.7'; // à augmenter à chaque mise à jour
 // Une séance = 15 min : la répartition colle exactement au temps réglé pour chaque soir (doit être défini avant le chargement des données)
 const BLOCK=15;
 
@@ -935,9 +935,8 @@ function viewToday(){
   const late=S.items.filter(i=>!i.completed&&i.due<t);
   const todayLeft=(P.plan[t]||[]).length;const stk=streak();const mon0=addDays(t,-((parse(t).getDay()+6)%7));let weekDone=0;S.items.forEach(i=>(i.log||[]).forEach(x=>{if(x>=mon0&&x<=t)weekDone++}));const nextDue=S.items.filter(i=>!i.completed&&i.due>=t).sort((a,b)=>a.due<b.due?-1:1)[0];const nm=' Chloé';
   const hd=longDate(t);const exam=nextDue&&nextDue.type==='controle';
-  let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div>${todayLeft?'':`<span class="sp" style="flex:none">${MS('schedule')}Fini pour aujourd'hui</span>`}</div><h1>${hello}${nm} ! 👋</h1>
-   <p>${todayLeft?`Encore <strong>${fmtMin(baseMin(todayLeft))}</strong> de travail prévu pour boucler ta journée l'esprit tranquille.`:(S.items.some(i=>doneOn(i,t))?'Tout est fait pour aujourd\'hui. Profite de ta soirée !':'Rien de prévu aujourd\'hui.')}</p>
-   <div class="spills">${P.over.some(o=>o.d>=t)?'<span class="sp" style="background:var(--ctl-soft);color:var(--bad)">! Surcharge de travail</span>':''}<span class="streak" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span>${nextDue?`<span class="sp ${exam||diff(t,nextDue.due)<=1?'exam':''}">${MS('priority_high')}Remise : ${h(dueLabel(nextDue.due))}</span>`:''}</div>
+  let html=`<div class="stack"><section class="hero2"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="eyebrow">${h(hd)}</div><span class="streak" style="flex:none" title="Jours de suite avec au moins une séance faite">${MS('local_fire_department','fill')}${stk} jour${stk>1?'s':''} de suite</span></div><h1 style="white-space:nowrap;font-size:clamp(22px,6.4vw,32px)">${hello}${nm} !</h1>
+   <div class="spills">${P.over.some(o=>o.d>=t)?'<span class="sp" style="background:var(--ctl-soft);color:var(--bad)">! Surcharge de travail</span>':''}${todayLeft?'':`<span class="sp" style="flex:none">${MS('schedule')}Fini pour aujourd'hui</span>`}</div>
    </section>`;
   if(late.length)html+=`<div class="alert" style="border-left-color:var(--bad);background:var(--ctl-soft)"><b>En retard :</b> ${late.map(i=>h(i.title)).join(', ')}. Si c'est déjà remis, marque-le terminé dans « Mes travaux ».</div>`;
   if(over.length)html+=`<div class="alert"><b>Trop de travail ${over.length===1?'le '+h(longDate(over[0])):'certains soirs'}.</b> Avance un peu aujourd'hui si tu peux.</div>`;
